@@ -1,12 +1,11 @@
 """`pigz-python` lives on `GitHub <https://github.com/nix7drummer88/pigz-python>`_."""
 from os import path
+from pigz-python import __version__
 from setuptools import find_packages, setup
 
 this_directory = path.abspath(path.dirname(__file__))
 with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
-
-from pigz-python import __version__
 
 
 setup(
