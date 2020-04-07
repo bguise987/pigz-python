@@ -14,7 +14,7 @@ GZIP_COMPRESS_OPTIONS = list(range(1, 9 + 1))
 
 def gzip(
     filename,
-    keep=False,
+    keep=True,
     compresslevel=9,
     blocksize=DEFAULT_BLOCK_SIZE_KB,
     recursive=True,
