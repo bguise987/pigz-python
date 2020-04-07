@@ -2,8 +2,9 @@
 Functions and classes to speed up compression of files by utilizing
 multiple cores on a system.
 """
-import os
 import gzip
+import os
+from multiprocessing.dummy import Pool
 
 CPU_COUNT = os.cpu_count()
 DEFAULT_BLOCK_SIZE_KB = 128
@@ -18,11 +19,13 @@ def gzip(
     compresslevel=9,
     blocksize=DEFAULT_BLOCK_SIZE_KB,
     recursive=True,
-    processes=CPU_COUNT,
+    workers=CPU_COUNT,
 ):
     """
     Take in a file or directory and gzip using multiple system cores.
     """
+    # Setup the system threads
+    pool = Pool(processes=workers)
     pass
 
 
