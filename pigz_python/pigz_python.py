@@ -18,7 +18,7 @@ GZIP_COMPRESS_OPTIONS = list(range(1, 9 + 1))
 class PigzFile:
     def __init__(
         self,
-        filename,
+        compression_target,
         keep=True,
         compresslevel=9,
         blocksize=DEFAULT_BLOCK_SIZE_KB,
@@ -28,38 +28,29 @@ class PigzFile:
         """
         Take in a file or directory and gzip using multiple system cores.
         """
-        self.filename = filename
+        self.compression_target = compression_target
         self.keep = keep
         self.blocksize = blocksize
         self.recursive = recursive
 
+        if recursive or os.path.isdir(compression_target):
+            raise NotImplementedError
+
         # Setup the system threads for compression
         self.pool = Pool(processes=workers)
         # Setup read thread
-        self.read_thread = Thread(target=read_file, args=(filename, blocksize * 1000))
+        self.read_thread = Thread(target=read_file, args=(compression_target, blocksize * 1000))
         # Setup write thread
-        self.write_thread = Thread(target=write_file, args=(filename))
+        self.write_thread = Thread(target=write_file, args=(compression_target))
 
-    def process_file(self):
+        self.process_compression_target()
+
+    def process_compression_target(self):
         """
-        Read in the file in chunks.
+        Read in the file(s) in chunks.
         Process those chunks.
         Write the resulting file out.
         """
-
-    def clean_up(self):
-        """
-        Delete original file if user doesn't want to keep it.
-        Clean up the processing pool.
-        """
-        if not self.keep:
-            if os.path.isdir(self.filename):
-                shutil.rmtree(self.filename)
-            else:
-                os.remove(self.filename)
-
-        self.pool.close()
-        self.pool.join()
 
     def read_file(self, filename, blocksize_bytes):
         """
@@ -86,6 +77,20 @@ class PigzFile:
         Write {filename} to disk.
         """
         pass
+
+    def clean_up(self):
+        """
+        Delete original file if user doesn't want to keep it.
+        Clean up the processing pool.
+        """
+        if not self.keep:
+            if os.path.isdir(self.compression_target):
+                shutil.rmtree(self.compression_target)
+            else:
+                os.remove(self.compression_target)
+
+        self.pool.close()
+        self.pool.join()
 
 
 def main():
