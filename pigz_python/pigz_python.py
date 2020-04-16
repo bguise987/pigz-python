@@ -32,7 +32,7 @@ class PigzFile:
         """
         self.compression_target = compression_target
         self.keep = keep
-        self.blocksize = blocksize
+        self.blocksize = blocksize * 1000
         self.recursive = recursive
 
         self.output_file = None
@@ -43,15 +43,13 @@ class PigzFile:
 
         self.chunk_queue = PriorityQueue()
 
-        if recursive or os.path.isdir(compression_target):
+        if os.path.isdir(compression_target):
             raise NotImplementedError
 
         # Setup the system threads for compression
         self.pool = Pool(processes=workers)
         # Setup read thread
-        self.read_thread = Thread(
-            target=self.read_file, args=(compression_target, blocksize * 1000)
-        )
+        self.read_thread = Thread(target=self.read_file)
         # Setup write thread
         self.write_thread = Thread(target=self.write_file)
 
@@ -75,7 +73,7 @@ class PigzFile:
         Setup the output file object.
         """
         base = os.path.basename(self.compression_target)
-        self.output_filename = os.path.splitext(base)[0]
+        self.output_filename = base + ".gz"
         self.output_file = open(self.output_filename, "wb")
 
         self.write_output_header()
@@ -86,31 +84,34 @@ class PigzFile:
         """
         # TODO: Write out data header
 
-    def read_file(self, filename, blocksize_bytes):
+    def read_file(self):
         """
         Read {filename} in {blocksize} chunks.
         This method is run on the read thread.
         """
         chunk_num = 0
-        with open(filename, "rb") as input_file:
+        with open(self.compression_target, "rb") as input_file:
             while True:
-                chunk = input_file.read(blocksize_bytes)
+                chunk = input_file.read(self.blocksize)
                 # Break out of the loop if we didn't read anything
                 if not chunk:
-                    self.last_chunk = chunk_num
+                    # Since we previously advanced chunk_num counter before we knew we reached EOF, decrement 1
+                    self.last_chunk = chunk_num - 1
                     break
 
                 # TODO: Apply this chunk to the pool
+                self.pool.apply_async(self.process_chunk, (chunk_num, chunk))
                 chunk_num += 1
 
-    def process_chunk(self, chunk: bytes):
+    def process_chunk(self, chunk_num: int, chunk: bytes):
         """
         Overall method to handle the chunk and pass it back to the write thread.
         This method is run on the pool.
         """
-        # TODO: Is this the right order?
+        # TODO: Is this the right order? Might need to pass check into compress method
         self.calculate_chunk_check(chunk)
         self.compress_chunk(chunk)
+        self.chunk_queue.put((chunk_num, chunk))
 
     def calculate_chunk_check(self, chunk: bytes):
         """
@@ -129,6 +130,7 @@ class PigzFile:
         Write compressed data to disk.
         Read chunks off of the priority queue.
         Priority is the chunk number, so we can keep track of which chunk to get next.
+        This is run from the write thread.
         """
         next_chunk_num = 0
         while True:
@@ -149,7 +151,6 @@ class PigzFile:
             else:
                 # If the queue is empty, we're likely waiting for data.
                 time.sleep(0.5)
-
         # Loop breaks out if we've received the final chunk
         self.clean_up()
 
@@ -187,9 +188,7 @@ class PigzFile:
         """
         Stop threads and close pool.
         """
-        self.read_thread.join()
-        self.write_thread.join()
-        self.pool.close()
+        self.pool.terminate()
         self.pool.join()
 
 
