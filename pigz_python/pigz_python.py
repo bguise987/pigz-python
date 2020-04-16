@@ -4,7 +4,9 @@ multiple cores on a system.
 """
 import gzip
 import os
+import shutil
 from multiprocessing.dummy import Pool
+from threading import Thread
 
 CPU_COUNT = os.cpu_count()
 DEFAULT_BLOCK_SIZE_KB = 128
@@ -13,20 +15,77 @@ DEFAULT_BLOCK_SIZE_KB = 128
 GZIP_COMPRESS_OPTIONS = list(range(1, 9 + 1))
 
 
-def gzip(
-    filename,
-    keep=True,
-    compresslevel=9,
-    blocksize=DEFAULT_BLOCK_SIZE_KB,
-    recursive=True,
-    workers=CPU_COUNT,
-):
-    """
-    Take in a file or directory and gzip using multiple system cores.
-    """
-    # Setup the system threads
-    pool = Pool(processes=workers)
-    pass
+class PigzFile:
+    def __init__(
+        self,
+        filename,
+        keep=True,
+        compresslevel=9,
+        blocksize=DEFAULT_BLOCK_SIZE_KB,
+        recursive=True,
+        workers=CPU_COUNT,
+    ):
+        """
+        Take in a file or directory and gzip using multiple system cores.
+        """
+        self.filename = filename
+        self.keep = keep
+        self.blocksize = blocksize
+        self.recursive = recursive
+
+        # Setup the system threads for compression
+        self.pool = Pool(processes=workers)
+        # Setup read thread
+        self.read_thread = Thread(target=read_file, args=(filename, blocksize * 1000))
+        # Setup write thread
+        self.write_thread = Thread(target=write_file, args=(filename))
+
+    def process_file(self):
+        """
+        Read in the file in chunks.
+        Process those chunks.
+        Write the resulting file out.
+        """
+
+    def clean_up(self):
+        """
+        Delete original file if user doesn't want to keep it.
+        Clean up the processing pool.
+        """
+        if not self.keep:
+            if os.path.isdir(self.filename):
+                shutil.rmtree(self.filename)
+            else:
+                os.remove(self.filename)
+
+        self.pool.close()
+        self.pool.join()
+
+    def read_file(self, filename, blocksize_bytes):
+        """
+        Read {filename} in {blocksize} chunks.
+        """
+        chunk_count = 0
+        with open(filename, "rb") as input_file:
+            while True:
+                chunk = input_file.read(blocksize_bytes)
+                # Break out of the loop if we didn't read anything
+                if not chunk:
+                    break
+                chunk_count += 1
+                # TODO: Apply this chunk to the pool
+        print(f"Read the whole file, chunk count is: {chunk_count}")
+
+    def calculate_crc(self):
+        """
+        Calculate the checksum for the
+        """
+
+    def write_file(self, filename):
+        """
+        Write {filename} to disk.
+        """
+        pass
 
 
 def main():
