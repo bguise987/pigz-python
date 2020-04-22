@@ -2,7 +2,6 @@
 Functions and classes to speed up compression of files by utilizing
 multiple cores on a system.
 """
-import gzip
 import os
 import shutil
 import time
@@ -193,7 +192,8 @@ class PigzFile:
 
 
 def main():
-    from argparse import ArgumentParser
+    """ Run pigz Python as a standalone module """
+    # from argparse import ArgumentParser
 
 
 if __name__ == "__main__":
