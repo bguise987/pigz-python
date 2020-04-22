@@ -4,6 +4,7 @@ multiple cores on a system.
 """
 import os
 import shutil
+import sys
 import time
 from multiprocessing.dummy import Pool
 from queue import PriorityQueue
@@ -31,8 +32,11 @@ class PigzFile:
         """
         self.compression_target = compression_target
         self.keep = keep
+        self.compression_level = compresslevel
         self.blocksize = blocksize * 1000
         self.recursive = recursive
+
+        self.mtime = self._determine_mtime()
 
         self.output_file = None
         self.output_filename = None
@@ -53,6 +57,18 @@ class PigzFile:
         self.write_thread = Thread(target=self.write_file)
 
         self.process_compression_target()
+
+    def _determine_mtime(self):
+        """
+        Determine MTIME to write out in Unix format (seconds since Unix epoch).
+        From http://www.zlib.org/rfc-gzip.html#header-trailer:
+        If the compressed data did not come from a file, MTIME is set to the time at which compression started.
+        MTIME = 0 means no time stamp is available.
+        """
+        try:
+            return os.stat(self.compression_target).mtime
+        except Exception:
+            return 0
 
     def process_compression_target(self):
         """
@@ -82,6 +98,69 @@ class PigzFile:
         Write gzip header to file
         """
         # TODO: Write out data header
+        # See line 1027 of pigz.c
+        # else {                          // gzip
+        #     len = put(g.outd, # output file descriptor
+        #         1, (val_t)31,
+        #         1, (val_t)139,
+        #         1, (val_t)8,            // deflate
+        #         1, (val_t)(g.name != NULL ? 8 : 0),
+        #         4, (val_t)g.mtime,
+        #         1, (val_t)(g.level >= 9 ? 2 : g.level == 1 ? 4 : 0),
+        #         1, (val_t)3,            // unix
+        #         0);
+        #     if (g.name != NULL)
+        #         len += writen(g.outd, g.name, strlen(g.name) + 1);
+        # }
+
+        # See this also: http://www.zlib.org/rfc-gzip.html#header-trailer
+
+        # Write ID (IDentification) ID 1, then ID 2. These denote the file as being gzip format.
+        self.output_file.write(0x1F)
+        self.output_file.write(0x8B)
+        # Write the CM (compression method)
+        self.output_file.write(self.compression_level)
+        # Write MTIME (Modification time)
+        self.output_file.write(self.mtime)
+        # Write XFL (eXtra FLags)
+        self.output_file.write(self._determine_extra_flags(self.compression_level))
+        # Write OS
+        self.output_file.write(self._determine_operating_system())
+
+    def _determine_extra_flags(self, compression_level):
+        """
+        Determine the XFL or eXtra FLags value based on compression level.
+        Note this is copied from the pigz implementation.
+        """
+        return 2 if compression_level >= 9 else 4 if compression_level == 1 else 0
+
+    def _determine_operating_system(self):
+        """
+        Return appropriate number based on OS format.
+        0 - FAT filesystem (MS-DOS, OS/2, NT/Win32)
+        1 - Amiga
+        2 - VMS (or OpenVMS)
+        3 - Unix
+        4 - VM/CMS
+        5 - Atari TOS
+        6 - HPFS filesystem (OS/2, NT)
+        7 - Macintosh
+        8 - Z-System
+        9 - CP/M
+        10 - TOPS-20
+        11 - NTFS filesystem (NT)
+        12 - QDOS
+        13 - Acorn RISCOS
+        255 - unknown
+        """
+        if sys.platform.startswith(('freebsd', 'linux', 'aix')):
+            return 3
+        elif sys.platform.startswith(('darwin')):
+            return 7
+        elif sys.platform.startswith(('win32')):
+            return 0
+
+        return 255
 
     def read_file(self):
         """
@@ -172,6 +251,8 @@ class PigzFile:
         Write the trailer for the compressed data.
         """
         # TODO: Write trailer
+        # Write CRC32
+        # Write ISIZE
 
     def handle_keep(self):
         """
