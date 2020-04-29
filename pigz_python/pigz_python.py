@@ -44,6 +44,8 @@ class PigzFile:
 
         # This is how we know if we're done reading, compressing, & writing the file
         self.last_chunk = -1
+        # This is calculated as data is written out
+        self.checksum = 0
 
         self.chunk_queue = PriorityQueue()
 
@@ -189,16 +191,8 @@ class PigzFile:
         Overall method to handle the chunk and pass it back to the write thread.
         This method is run on the pool.
         """
-        chunk_check = self.calculate_chunk_check(chunk)
         compressed_chunk = self.compress_chunk(chunk)
-        self.chunk_queue.put((chunk_num, compressed_chunk, chunk_check))
-
-    def calculate_chunk_check(self, chunk: bytes):
-        """
-        Calculate the check value for the chunk.
-        """
-        # Note: See crc32 documentation - might be able to utilize it to calculate the running checksum
-        return crc32(chunk)
+        self.chunk_queue.put((chunk_num, chunk, compressed_chunk))
 
     def compress_chunk(self, chunk: bytes):
         """
@@ -219,13 +213,15 @@ class PigzFile:
         next_chunk_num = 0
         while True:
             if not self.chunk_queue.empty():
-                chunk_num, compressed_chunk, chunk_check = self.chunk_queue.get()
+                chunk_num, chunk, compressed_chunk = self.chunk_queue.get()
 
                 if chunk_num != next_chunk_num:
                     # If this isn't the next chunk we're looking for, place it back on the queue and sleep
-                    self.chunk_queue.put((chunk_num, compressed_chunk, chunk_check))
+                    self.chunk_queue.put((chunk_num, chunk, compressed_chunk))
                     time.sleep(0.5)
                 else:
+                    # Calculate running checksum
+                    self.calculate_chunk_check(chunk)
                     # Write chunk to file, advance next chunk we're looking for
                     self.output_file.write(compressed_chunk)
                     # If this was the last chunk, we can break the loop and close the file
@@ -237,6 +233,12 @@ class PigzFile:
                 time.sleep(0.5)
         # Loop breaks out if we've received the final chunk
         self.clean_up()
+
+    def calculate_chunk_check(self, chunk: bytes):
+        """
+        Calculate the check value for the chunk.
+        """
+        return crc32(chunk, self.checksum)
 
     def clean_up(self):
         """
