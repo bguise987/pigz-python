@@ -46,6 +46,8 @@ class PigzFile:
         self.last_chunk = -1
         # This is calculated as data is written out
         self.checksum = 0
+        # This is calculated as data is read in
+        self.input_size = 0
 
         self.chunk_queue = PriorityQueue()
 
@@ -69,7 +71,7 @@ class PigzFile:
         MTIME = 0 means no time stamp is available.
         """
         try:
-            return os.stat(self.compression_target).mtime
+            return int(os.stat(self.compression_target).st_mtime)
         except Exception:
             return 0
 
@@ -122,7 +124,10 @@ class PigzFile:
         self.output_file.write((0x1F).to_bytes(1, sys.byteorder))
         self.output_file.write((0x8B).to_bytes(1, sys.byteorder))
         # Write the CM (compression method)
-        self.output_file.write((self.compression_level).to_bytes(1, sys.byteorder))
+        self.output_file.write((8).to_bytes(1, sys.byteorder))
+        # Write FLG (FLaGs)
+        # Note: For now we won't set extra flags
+        self.output_file.write((0).to_bytes(1, sys.byteorder))
         # Write MTIME (Modification time)
         self.output_file.write((self.mtime).to_bytes(4, sys.byteorder))
         # Write XFL (eXtra FLags)
@@ -182,7 +187,8 @@ class PigzFile:
                     self.last_chunk = chunk_num - 1
                     break
 
-                # TODO: Apply this chunk to the pool
+                self.input_size += len(chunk)
+                # Apply this chunk to the pool
                 self.pool.apply_async(self.process_chunk, (chunk_num, chunk))
                 chunk_num += 1
 
@@ -238,7 +244,7 @@ class PigzFile:
         """
         Calculate the check value for the chunk.
         """
-        return crc32(chunk, self.checksum)
+        self.checksum = crc32(chunk, self.checksum)
 
     def clean_up(self):
         """
@@ -258,9 +264,14 @@ class PigzFile:
         """
         Write the trailer for the compressed data.
         """
-        # TODO: Write trailer
         # Write CRC32
-        # Write ISIZE
+        self.output_file.write((self.checksum).to_bytes(4, sys.byteorder))
+        # Write ISIZE (Input SIZE) - This contains the size of the original (uncompressed) input data modulo 2^32.
+        # TODO: Assume this is bytes?
+        # 'x mod 2n' is equivalent to 'x & (2n - 1)
+        # TODO: For now, assuming Python's 32 bit int is handling this for us by nature of overflow?
+        # Need to look into this more when it's not 3AM....
+        self.output_file.write((self.input_size).to_bytes(4, sys.byteorder))
 
     def handle_keep(self):
         """
