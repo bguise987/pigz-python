@@ -9,7 +9,7 @@ import time
 from multiprocessing.dummy import Pool
 from queue import PriorityQueue
 from threading import Thread
-from zlib import compress, crc32
+from zlib import Z_SYNC_FLUSH, compressobj, crc32
 
 CPU_COUNT = os.cpu_count()
 DEFAULT_BLOCK_SIZE_KB = 128
@@ -204,7 +204,10 @@ class PigzFile:
         """
         Compress the chunk.
         """
-        return compress(chunk, self.compression_level)
+        compressor = compressobj(self.compression_level)
+        compressed_data = compressor.compress(chunk)
+        compressed_data += compressor.flush(Z_SYNC_FLUSH)
+        return compressed_data
 
     def write_file(self):
         """
