@@ -117,16 +117,18 @@ class PigzFile:
         # See this also: http://www.zlib.org/rfc-gzip.html#header-trailer
 
         # Write ID (IDentification) ID 1, then ID 2. These denote the file as being gzip format.
-        self.output_file.write(0x1F)
-        self.output_file.write(0x8B)
+        self.output_file.write((0x1F).to_bytes(1, sys.byteorder))
+        self.output_file.write((0x8B).to_bytes(1, sys.byteorder))
         # Write the CM (compression method)
-        self.output_file.write(self.compression_level)
+        self.output_file.write((self.compression_level).to_bytes(1, sys.byteorder))
         # Write MTIME (Modification time)
-        self.output_file.write(self.mtime)
+        self.output_file.write((self.mtime).to_bytes(4, sys.byteorder))
         # Write XFL (eXtra FLags)
-        self.output_file.write(self._determine_extra_flags(self.compression_level))
+        extra_flags = self._determine_extra_flags(self.compression_level)
+        self.output_file.write((extra_flags).to_bytes(1, sys.byteorder))
         # Write OS
-        self.output_file.write(self._determine_operating_system())
+        os_number = self._determine_operating_system()
+        self.output_file.write((os_number).to_bytes(1, sys.byteorder))
 
     def _determine_extra_flags(self, compression_level):
         """
