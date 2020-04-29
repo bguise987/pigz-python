@@ -9,6 +9,7 @@ import time
 from multiprocessing.dummy import Pool
 from queue import PriorityQueue
 from threading import Thread
+from zlib import compress, crc32
 
 CPU_COUNT = os.cpu_count()
 DEFAULT_BLOCK_SIZE_KB = 128
@@ -153,11 +154,11 @@ class PigzFile:
         13 - Acorn RISCOS
         255 - unknown
         """
-        if sys.platform.startswith(('freebsd', 'linux', 'aix')):
+        if sys.platform.startswith(("freebsd", "linux", "aix")):
             return 3
-        elif sys.platform.startswith(('darwin')):
+        elif sys.platform.startswith(("darwin")):
             return 7
-        elif sys.platform.startswith(('win32')):
+        elif sys.platform.startswith(("win32")):
             return 0
 
         return 255
@@ -186,22 +187,22 @@ class PigzFile:
         Overall method to handle the chunk and pass it back to the write thread.
         This method is run on the pool.
         """
-        # TODO: Is this the right order? Might need to pass check into compress method
-        self.calculate_chunk_check(chunk)
-        self.compress_chunk(chunk)
-        self.chunk_queue.put((chunk_num, chunk))
+        chunk_check = self.calculate_chunk_check(chunk)
+        compressed_chunk = self.compress_chunk(chunk)
+        self.chunk_queue.put((chunk_num, compressed_chunk, chunk_check))
 
     def calculate_chunk_check(self, chunk: bytes):
         """
         Calculate the check value for the chunk.
         """
-        # TODO: Calculate the chunk check
+        # Note: See crc32 documentation - might be able to utilize it to calculate the running checksum
+        return crc32(chunk)
 
     def compress_chunk(self, chunk: bytes):
         """
         Compress the chunk.
         """
-        # TODO: Do the compression work with zlib
+        return compress(chunk, self.compression_level)
 
     def write_file(self):
         """
@@ -213,15 +214,15 @@ class PigzFile:
         next_chunk_num = 0
         while True:
             if not self.chunk_queue.empty():
-                chunk_num, chunk = self.chunk_queue.get()
+                chunk_num, compressed_chunk, chunk_check = self.chunk_queue.get()
 
                 if chunk_num != next_chunk_num:
                     # If this isn't the next chunk we're looking for, place it back on the queue and sleep
-                    self.chunk_queue.put((chunk_num, chunk))
+                    self.chunk_queue.put((chunk_num, compressed_chunk, chunk_check))
                     time.sleep(0.5)
                 else:
                     # Write chunk to file, advance next chunk we're looking for
-                    self.output_file.write(chunk)
+                    self.output_file.write(compressed_chunk)
                     # If this was the last chunk, we can break the loop and close the file
                     if chunk_num == self.last_chunk:
                         break
