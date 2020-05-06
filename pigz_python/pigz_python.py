@@ -9,7 +9,7 @@ import time
 from multiprocessing.dummy import Pool
 from queue import PriorityQueue
 from threading import Thread
-from zlib import Z_SYNC_FLUSH, compressobj, crc32
+from zlib import Z_SYNC_FLUSH, Z_FINISH, compressobj, crc32, compress, MAX_WBITS
 
 CPU_COUNT = os.cpu_count()
 DEFAULT_BLOCK_SIZE_KB = 128
@@ -73,7 +73,7 @@ class PigzFile:
         try:
             return int(os.stat(self.compression_target).st_mtime)
         except Exception:
-            return 0
+            return int(time.time())
 
     def process_compression_target(self):
         """
@@ -126,7 +126,6 @@ class PigzFile:
         # Write the CM (compression method)
         self.output_file.write((8).to_bytes(1, sys.byteorder))
         # Write FLG (FLaGs)
-        # Note: For now we won't set extra flags
         self.output_file.write((0).to_bytes(1, sys.byteorder))
         # Write MTIME (Modification time)
         self.output_file.write((self.mtime).to_bytes(4, sys.byteorder))
@@ -198,15 +197,20 @@ class PigzFile:
         This method is run on the pool.
         """
         compressed_chunk = self.compress_chunk(chunk)
+        # print(f'READING: compressed chunk_num {chunk_num} has length {len(compressed_chunk)}')
         self.chunk_queue.put((chunk_num, chunk, compressed_chunk))
 
     def compress_chunk(self, chunk: bytes):
         """
         Compress the chunk.
         """
-        compressor = compressobj(self.compression_level)
+        # TODO: Pass in zdict to compressobj (see docs)
+        compressor = compressobj(level=self.compression_level, wbits=-MAX_WBITS)
         compressed_data = compressor.compress(chunk)
         compressed_data += compressor.flush(Z_SYNC_FLUSH)
+        # print(f'Compressed the chunk, compressed_data is: {compressed_data}')
+
+        print(f'Compressed the chunk')
         return compressed_data
 
     def write_file(self):
@@ -230,6 +234,7 @@ class PigzFile:
                     self.calculate_chunk_check(chunk)
                     # Write chunk to file, advance next chunk we're looking for
                     self.output_file.write(compressed_chunk)
+                    # print(f'WRITING: compressed chunk_num {chunk_num} has length {len(compressed_chunk)}')
                     # If this was the last chunk, we can break the loop and close the file
                     if chunk_num == self.last_chunk:
                         break
@@ -266,12 +271,15 @@ class PigzFile:
         """
         # Write CRC32
         self.output_file.write((self.checksum).to_bytes(4, sys.byteorder))
+        print(f'CRC32 for the file was: {self.checksum}')
         # Write ISIZE (Input SIZE) - This contains the size of the original (uncompressed) input data modulo 2^32.
         # TODO: Assume this is bytes?
         # 'x mod 2n' is equivalent to 'x & (2n - 1)
         # TODO: For now, assuming Python's 32 bit int is handling this for us by nature of overflow?
         # Need to look into this more when it's not 3AM....
-        self.output_file.write((self.input_size).to_bytes(4, sys.byteorder))
+        # looks like self.input_size & 0xffffffff should do the trick
+        self.output_file.write((self.input_size & 0xffffffff).to_bytes(4, sys.byteorder))
+        print(f'ISIZE for the file was: {self.input_size}')
 
     def handle_keep(self):
         """
