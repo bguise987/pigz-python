@@ -9,7 +9,7 @@ import time
 from multiprocessing.dummy import Pool
 from queue import PriorityQueue
 from threading import Thread
-from zlib import Z_SYNC_FLUSH, Z_FINISH, compressobj, crc32, compress, MAX_WBITS
+import zlib
 
 CPU_COUNT = os.cpu_count()
 DEFAULT_BLOCK_SIZE_KB = 128
@@ -31,6 +31,7 @@ class PigzFile:
         """
         Take in a file or directory and gzip using multiple system cores.
         """
+        self.start_time = time.time()
         self.compression_target = compression_target
         self.keep = keep
         self.compression_level = compresslevel
@@ -62,6 +63,8 @@ class PigzFile:
         self.write_thread = Thread(target=self.write_file)
 
         self.process_compression_target()
+
+        self.check_input_size = os.stat(compression_target).st_size
 
     def _determine_mtime(self):
         """
@@ -194,21 +197,26 @@ class PigzFile:
         Overall method to handle the chunk and pass it back to the write thread.
         This method is run on the pool.
         """
-        compressed_chunk = self.compress_chunk(chunk)
+        last_chunk = True if chunk_num == self.last_chunk else False
+        compressed_chunk = self.compress_chunk(chunk, last_chunk)
         # print(f'READING: compressed chunk_num {chunk_num} has length {len(compressed_chunk)}')
         self.chunk_queue.put((chunk_num, chunk, compressed_chunk))
 
-    def compress_chunk(self, chunk: bytes):
+    def compress_chunk(self, chunk: bytes, is_last_chunk: bool):
         """
         Compress the chunk.
         """
         # TODO: Pass in zdict to compressobj (see docs)
-        compressor = compressobj(level=self.compression_level, wbits=-MAX_WBITS)
+        compressor = zlib.compressobj(level=self.compression_level, method=zlib.DEFLATED, wbits=-zlib.MAX_WBITS, memLevel=zlib.DEF_MEM_LEVEL, strategy=zlib.Z_DEFAULT_STRATEGY)
         compressed_data = compressor.compress(chunk)
-        compressed_data += compressor.flush(Z_SYNC_FLUSH)
+        if is_last_chunk:
+            # TODO: flush with zlib.Z_FINISH if this is the last chunk
+            compressed_data += compressor.flush(zlib.Z_FINISH)
+        else:
+            compressed_data += compressor.flush(zlib.Z_SYNC_FLUSH)
         # print(f'Compressed the chunk, compressed_data is: {compressed_data}')
 
-        print(f'Compressed the chunk')
+        # print(f'Compressed the chunk')
         return compressed_data
 
     def write_file(self):
@@ -247,7 +255,7 @@ class PigzFile:
         """
         Calculate the check value for the chunk.
         """
-        self.checksum = crc32(chunk, self.checksum)
+        self.checksum = zlib.crc32(chunk, self.checksum)
 
     def clean_up(self):
         """
@@ -257,11 +265,18 @@ class PigzFile:
         """
         self.write_file_trailer()
 
+        # Flush internal buffers
+        self.output_file.flush()
         self.output_file.close()
 
         self.handle_keep()
 
         self.close_workers()
+
+        end_time = time.time()
+        total_time = end_time - self.start_time
+        print(f'Total time was {total_time} s')
+        print(f'Total time was {total_time/60} mins')
 
     def write_file_trailer(self):
         """
@@ -278,6 +293,8 @@ class PigzFile:
         # looks like self.input_size & 0xffffffff should do the trick
         self.output_file.write((self.input_size & 0xffffffff).to_bytes(4, sys.byteorder))
         print(f'ISIZE for the file was: {self.input_size}')
+        if self.check_input_size != self.input_size:
+            print(f'Hmmm....input file size does NOT match our output size when chunking...')
 
     def handle_keep(self):
         """
