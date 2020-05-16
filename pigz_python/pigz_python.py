@@ -162,10 +162,8 @@ class PigzFile:
         13 - Acorn RISCOS
         255 - unknown
         """
-        if sys.platform.startswith(("freebsd", "linux", "aix")):
+        if sys.platform.startswith(("freebsd", "linux", "aix", "darwin")):
             return 3
-        elif sys.platform.startswith(("darwin")):
-            return 7
         elif sys.platform.startswith(("win32")):
             return 0
 
