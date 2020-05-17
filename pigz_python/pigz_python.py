@@ -6,10 +6,10 @@ import os
 import shutil
 import sys
 import time
+import zlib
 from multiprocessing.dummy import Pool
 from queue import PriorityQueue
-from threading import Thread, Lock
-import zlib
+from threading import Lock, Thread
 
 CPU_COUNT = os.cpu_count()
 DEFAULT_BLOCK_SIZE_KB = 128
@@ -210,7 +210,13 @@ class PigzFile:
         Compress the chunk.
         """
         # TODO: Pass in zdict to compressobj (see docs)
-        compressor = zlib.compressobj(level=self.compression_level, method=zlib.DEFLATED, wbits=-zlib.MAX_WBITS, memLevel=zlib.DEF_MEM_LEVEL, strategy=zlib.Z_DEFAULT_STRATEGY)
+        compressor = zlib.compressobj(
+            level=self.compression_level,
+            method=zlib.DEFLATED,
+            wbits=-zlib.MAX_WBITS,
+            memLevel=zlib.DEF_MEM_LEVEL,
+            strategy=zlib.Z_DEFAULT_STRATEGY,
+        )
         compressed_data = compressor.compress(chunk)
         if is_last_chunk:
             # TODO: flush with zlib.Z_FINISH if this is the last chunk
@@ -278,8 +284,8 @@ class PigzFile:
 
         end_time = time.time()
         total_time = end_time - self.start_time
-        print(f'Total time was {total_time} s')
-        print(f'Total time was {total_time/60} mins')
+        print(f"Total time was {total_time} s")
+        print(f"Total time was {total_time/60} mins")
 
     def write_file_trailer(self):
         """
@@ -287,17 +293,21 @@ class PigzFile:
         """
         # Write CRC32
         self.output_file.write((self.checksum).to_bytes(4, sys.byteorder))
-        print(f'CRC32 for the file was: {self.checksum}')
+        print(f"CRC32 for the file was: {self.checksum}")
         # Write ISIZE (Input SIZE) - This contains the size of the original (uncompressed) input data modulo 2^32.
         # TODO: Assume this is bytes?
         # 'x mod 2n' is equivalent to 'x & (2n - 1)
         # TODO: For now, assuming Python's 32 bit int is handling this for us by nature of overflow?
         # Need to look into this more when it's not 3AM....
         # looks like self.input_size & 0xffffffff should do the trick
-        self.output_file.write((self.input_size & 0xffffffff).to_bytes(4, sys.byteorder))
-        print(f'ISIZE for the file was: {self.input_size}')
+        self.output_file.write(
+            (self.input_size & 0xFFFFFFFF).to_bytes(4, sys.byteorder)
+        )
+        print(f"ISIZE for the file was: {self.input_size}")
         if self.check_input_size != self.input_size:
-            print(f'Hmmm....input file size does NOT match our output size when chunking...')
+            print(
+                f"Hmmm....input file size does NOT match our output size when chunking..."
+            )
 
     def handle_keep(self):
         """
