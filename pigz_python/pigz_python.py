@@ -8,7 +8,7 @@ import sys
 import time
 from multiprocessing.dummy import Pool
 from queue import PriorityQueue
-from threading import Thread
+from threading import Thread, Lock
 import zlib
 
 CPU_COUNT = os.cpu_count()
@@ -44,7 +44,8 @@ class PigzFile:
         self.output_filename = None
 
         # This is how we know if we're done reading, compressing, & writing the file
-        self.last_chunk = -1
+        self._last_chunk = -1
+        self._last_chunk_lock = Lock()
         # This is calculated as data is written out
         self.checksum = 0
         # This is calculated as data is read in
@@ -184,7 +185,8 @@ class PigzFile:
                 # Break out of the loop if we didn't read anything
                 if not chunk:
                     # Since we previously advanced chunk_num counter before we knew we reached EOF, decrement 1
-                    self.last_chunk = chunk_num - 1
+                    with self._last_chunk_lock:
+                        self._last_chunk = chunk_num - 1
                     break
 
                 self.input_size += len(chunk)
@@ -197,7 +199,8 @@ class PigzFile:
         Overall method to handle the chunk and pass it back to the write thread.
         This method is run on the pool.
         """
-        last_chunk = True if chunk_num == self.last_chunk else False
+        with self._last_chunk_lock:
+            last_chunk = True if chunk_num == self._last_chunk else False
         compressed_chunk = self.compress_chunk(chunk, last_chunk)
         # print(f'READING: compressed chunk_num {chunk_num} has length {len(compressed_chunk)}')
         self.chunk_queue.put((chunk_num, chunk, compressed_chunk))
