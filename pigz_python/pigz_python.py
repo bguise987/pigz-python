@@ -17,6 +17,9 @@ DEFAULT_BLOCK_SIZE_KB = 128
 # 1 is fastest but worst, 9 is slowest but best
 GZIP_COMPRESS_OPTIONS = list(range(1, 9 + 1))
 
+# FLG bits
+FNAME = 0x8
+
 
 class PigzFile:
     def __init__(
@@ -111,8 +114,15 @@ class PigzFile:
         self.output_file.write((0x8B).to_bytes(1, sys.byteorder))
         # Write the CM (compression method)
         self.output_file.write((8).to_bytes(1, sys.byteorder))
+
+        fname = self._determine_fname()
+        flags = 0
+        if fname:
+            flags = FNAME
+
         # Write FLG (FLaGs)
-        self.output_file.write((0).to_bytes(1, sys.byteorder))
+        self.output_file.write((flags).to_bytes(1, sys.byteorder))
+
         # Write MTIME (Modification time)
         self.output_file.write((self.mtime).to_bytes(4, sys.byteorder))
         # Write XFL (eXtra FLags)
@@ -121,6 +131,9 @@ class PigzFile:
         # Write OS
         os_number = self._determine_operating_system()
         self.output_file.write((os_number).to_bytes(1, sys.byteorder))
+
+        # Write the FNAME
+        self.output_file.write(fname)
 
     def _determine_extra_flags(self, compression_level):
         """
@@ -154,6 +167,25 @@ class PigzFile:
             return 0
 
         return 255
+
+    def _determine_fname(self):
+        """
+        Determine the FNAME (filename) of the source file to the output
+        """
+        try:
+            # RFC 1952 requires the FNAME field to be Latin-1. Do not
+            # include filenames that cannot be represented that way.
+            fname = os.path.basename(self.compression_target)
+            if not isinstance(fname, bytes):
+                fname = fname.encode("latin-1")
+            if fname.endswith(b".gz"):
+                fname = fname[:-3]
+            # Terminate with zero byte
+            fname += b"\0"
+        except UnicodeEncodeError:
+            fname = b""
+
+        return fname
 
     def read_file(self):
         """
