@@ -105,25 +105,8 @@ class PigzFile:
     def write_output_header(self):
         """
         Write gzip header to file
+        See RFC documentation: http://www.zlib.org/rfc-gzip.html#header-trailer
         """
-        # TODO: Write out data header
-        # See line 1027 of pigz.c
-        # else {                          // gzip
-        #     len = put(g.outd, # output file descriptor
-        #         1, (val_t)31,
-        #         1, (val_t)139,
-        #         1, (val_t)8,            // deflate
-        #         1, (val_t)(g.name != NULL ? 8 : 0),
-        #         4, (val_t)g.mtime,
-        #         1, (val_t)(g.level >= 9 ? 2 : g.level == 1 ? 4 : 0),
-        #         1, (val_t)3,            // unix
-        #         0);
-        #     if (g.name != NULL)
-        #         len += writen(g.outd, g.name, strlen(g.name) + 1);
-        # }
-
-        # See this also: http://www.zlib.org/rfc-gzip.html#header-trailer
-
         # Write ID (IDentification) ID 1, then ID 2. These denote the file as being gzip format.
         self.output_file.write((0x1F).to_bytes(1, sys.byteorder))
         self.output_file.write((0x8B).to_bytes(1, sys.byteorder))
@@ -208,7 +191,6 @@ class PigzFile:
         """
         Compress the chunk.
         """
-        # TODO: Pass in zdict to compressobj (see docs)
         compressor = zlib.compressobj(
             level=self.compression_level,
             method=zlib.DEFLATED,
@@ -218,7 +200,6 @@ class PigzFile:
         )
         compressed_data = compressor.compress(chunk)
         if is_last_chunk:
-            # TODO: flush with zlib.Z_FINISH if this is the last chunk
             compressed_data += compressor.flush(zlib.Z_FINISH)
         else:
             compressed_data += compressor.flush(zlib.Z_SYNC_FLUSH)
@@ -288,11 +269,6 @@ class PigzFile:
         # Write CRC32
         self.output_file.write((self.checksum).to_bytes(4, sys.byteorder))
         # Write ISIZE (Input SIZE) - This contains the size of the original (uncompressed) input data modulo 2^32.
-        # TODO: Assume this is bytes?
-        # 'x mod 2n' is equivalent to 'x & (2n - 1)
-        # TODO: For now, assuming Python's 32 bit int is handling this for us by nature of overflow?
-        # Need to look into this more when it's not 3AM....
-        # looks like self.input_size & 0xffffffff should do the trick
         self.output_file.write(
             (self.input_size & 0xFFFFFFFF).to_bytes(4, sys.byteorder)
         )
