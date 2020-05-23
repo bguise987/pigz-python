@@ -31,7 +31,6 @@ class PigzFile:
         """
         Take in a file or directory and gzip using multiple system cores.
         """
-        self.start_time = time.time()
         self.compression_target = compression_target
         self.keep = keep
         self.compression_level = compresslevel
@@ -259,9 +258,6 @@ class PigzFile:
 
         self.close_workers()
 
-        end_time = time.time()
-        total_time = end_time - self.start_time
-
     def write_file_trailer(self):
         """
         Write the trailer for the compressed data.
@@ -272,10 +268,6 @@ class PigzFile:
         self.output_file.write(
             (self.input_size & 0xFFFFFFFF).to_bytes(4, sys.byteorder)
         )
-        if self.check_input_size != self.input_size:
-            print(
-                f"Hmmm....input file size does NOT match our output size when chunking..."
-            )
 
     def handle_keep(self):
         """
