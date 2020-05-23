@@ -202,7 +202,6 @@ class PigzFile:
         with self._last_chunk_lock:
             last_chunk = True if chunk_num == self._last_chunk else False
         compressed_chunk = self.compress_chunk(chunk, last_chunk)
-        # print(f'READING: compressed chunk_num {chunk_num} has length {len(compressed_chunk)}')
         self.chunk_queue.put((chunk_num, chunk, compressed_chunk))
 
     def compress_chunk(self, chunk: bytes, is_last_chunk: bool):
@@ -223,9 +222,7 @@ class PigzFile:
             compressed_data += compressor.flush(zlib.Z_FINISH)
         else:
             compressed_data += compressor.flush(zlib.Z_SYNC_FLUSH)
-        # print(f'Compressed the chunk, compressed_data is: {compressed_data}')
 
-        # print(f'Compressed the chunk')
         return compressed_data
 
     def write_file(self):
@@ -249,7 +246,6 @@ class PigzFile:
                     self.calculate_chunk_check(chunk)
                     # Write chunk to file, advance next chunk we're looking for
                     self.output_file.write(compressed_chunk)
-                    # print(f'WRITING: compressed chunk_num {chunk_num} has length {len(compressed_chunk)}')
                     # If this was the last chunk, we can break the loop and close the file
                     if chunk_num == self.last_chunk:
                         break
@@ -284,8 +280,6 @@ class PigzFile:
 
         end_time = time.time()
         total_time = end_time - self.start_time
-        print(f"Total time was {total_time} s")
-        print(f"Total time was {total_time/60} mins")
 
     def write_file_trailer(self):
         """
@@ -293,7 +287,6 @@ class PigzFile:
         """
         # Write CRC32
         self.output_file.write((self.checksum).to_bytes(4, sys.byteorder))
-        print(f"CRC32 for the file was: {self.checksum}")
         # Write ISIZE (Input SIZE) - This contains the size of the original (uncompressed) input data modulo 2^32.
         # TODO: Assume this is bytes?
         # 'x mod 2n' is equivalent to 'x & (2n - 1)
@@ -303,7 +296,6 @@ class PigzFile:
         self.output_file.write(
             (self.input_size & 0xFFFFFFFF).to_bytes(4, sys.byteorder)
         )
-        print(f"ISIZE for the file was: {self.input_size}")
         if self.check_input_size != self.input_size:
             print(
                 f"Hmmm....input file size does NOT match our output size when chunking..."
