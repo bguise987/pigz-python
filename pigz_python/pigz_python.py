@@ -227,7 +227,7 @@ class PigzFile:
                     # Write chunk to file, advance next chunk we're looking for
                     self.output_file.write(compressed_chunk)
                     # If this was the last chunk, we can break the loop and close the file
-                    if chunk_num == self.last_chunk:
+                    if chunk_num == self._last_chunk:
                         break
                     next_chunk_num += 1
             else:
