@@ -299,6 +299,8 @@ class PigzFile:
 
 
 def compress_file(source_file):
-    # TODO: This is still just returning in like a second and then you have to wait on your own
-    pigz_file = PigzFile(source_file)
-    pigz_file.process_compression_target()
+    pass
+    # This really should just do the context manager protocol work for us given a valid file path
+    # with open(source_file, 'rb') as f_in:
+    #     with PigzFile(source_file) as f_out:
+    #         shutil.copyfileobj(f_in, f_out)
