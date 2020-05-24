@@ -63,8 +63,6 @@ class PigzFile:
 
         self.process_compression_target()
 
-        self.check_input_size = os.stat(input_file).st_size
-
     def _determine_mtime(self):
         """
         Determine MTIME to write out in Unix format (seconds since Unix epoch).
