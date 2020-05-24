@@ -59,7 +59,7 @@ class PigzFile:
         # Setup read thread
         self.read_thread = Thread(target=self.read_file)
         # Setup write thread
-        self.write_thread = Thread(target=self.write_file)
+        self.write_thread = Thread(target=self._write_file)
 
     def __enter__(self):
         pass
@@ -79,19 +79,19 @@ class PigzFile:
         except Exception:
             return int(time.time())
 
-    def process_compression_target(self):
+    def _start_all_threads(self):
         """
         Read in the file(s) in chunks.
         Process those chunks.
         Write the resulting file out.
         """
-        self.setup_output_file()
+        self._setup_output_file()
         # Start the write thread first so it's ready to accept data
         self.write_thread.start()
         # Start the read thread
         self.read_thread.start()
 
-    def setup_output_file(self):
+    def _setup_output_file(self):
         """
         Determine output filename.
         Setup the output file object.
@@ -100,9 +100,9 @@ class PigzFile:
         self.output_filename = base + ".gz"
         self.output_file = open(self.output_filename, "wb")
 
-        self.write_output_header()
+        self._write_output_header()
 
-    def write_output_header(self):
+    def _write_output_header(self):
         """
         Write gzip header to file
         See RFC documentation: http://www.zlib.org/rfc-gzip.html#header-trailer
@@ -213,10 +213,10 @@ class PigzFile:
         """
         with self._last_chunk_lock:
             last_chunk = True if chunk_num == self._last_chunk else False
-        compressed_chunk = self.compress_chunk(chunk, last_chunk)
+        compressed_chunk = self._compress_chunk(chunk, last_chunk)
         self.chunk_queue.put((chunk_num, chunk, compressed_chunk))
 
-    def compress_chunk(self, chunk: bytes, is_last_chunk: bool):
+    def _compress_chunk(self, chunk: bytes, is_last_chunk: bool):
         """
         Compress the chunk.
         """
@@ -235,7 +235,7 @@ class PigzFile:
 
         return compressed_data
 
-    def write_file(self):
+    def _write_file(self):
         """
         Write compressed data to disk.
         Read chunks off of the priority queue.
@@ -253,7 +253,7 @@ class PigzFile:
                     time.sleep(0.5)
                 else:
                     # Calculate running checksum
-                    self.calculate_chunk_check(chunk)
+                    self._calculate_chunk_check(chunk)
                     # Write chunk to file, advance next chunk we're looking for
                     self.output_file.write(compressed_chunk)
                     # If this was the last chunk, we can break the loop and close the file
@@ -264,28 +264,28 @@ class PigzFile:
                 # If the queue is empty, we're likely waiting for data.
                 time.sleep(0.5)
         # Loop breaks out if we've received the final chunk
-        self.clean_up()
+        self._clean_up()
 
-    def calculate_chunk_check(self, chunk: bytes):
+    def _calculate_chunk_check(self, chunk: bytes):
         """
         Calculate the check value for the chunk.
         """
         self.checksum = zlib.crc32(chunk, self.checksum)
 
-    def clean_up(self):
+    def _clean_up(self):
         """
         Close the output file.
         Clean up the processing pool.
         """
-        self.write_file_trailer()
+        self._write_file_trailer()
 
         # Flush internal buffers
         self.output_file.flush()
         self.output_file.close()
 
-        self.close_workers()
+        self._close_workers()
 
-    def write_file_trailer(self):
+    def _write_file_trailer(self):
         """
         Write the trailer for the compressed data.
         """
@@ -296,7 +296,7 @@ class PigzFile:
             (self.input_size & 0xFFFFFFFF).to_bytes(4, sys.byteorder)
         )
 
-    def close_workers(self):
+    def _close_workers(self):
         """
         Stop threads and close pool.
         """
@@ -305,8 +305,10 @@ class PigzFile:
 
 
 def compress_file(source_file):
-    pass
     # This really should just do the context manager protocol work for us given a valid file path
     # with open(source_file, 'rb') as f_in:
     #     with PigzFile(source_file) as f_out:
     #         shutil.copyfileobj(f_in, f_out)
+
+    foo = PigzFile(source_file)
+    foo._start_all_threads()
