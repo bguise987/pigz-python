@@ -24,21 +24,17 @@ FNAME = 0x8
 class PigzFile:
     def __init__(
         self,
-        compression_target,
-        keep=True,
+        input_file,
         compresslevel=9,
         blocksize=DEFAULT_BLOCK_SIZE_KB,
-        recursive=True,
         workers=CPU_COUNT,
     ):
         """
         Take in a file or directory and gzip using multiple system cores.
         """
-        self.compression_target = compression_target
-        self.keep = keep
+        self.input_file = input_file
         self.compression_level = compresslevel
         self.blocksize = blocksize * 1000
-        self.recursive = recursive
 
         self.mtime = self._determine_mtime()
 
@@ -55,7 +51,7 @@ class PigzFile:
 
         self.chunk_queue = PriorityQueue()
 
-        if os.path.isdir(compression_target):
+        if os.path.isdir(input_file):
             raise NotImplementedError
 
         # Setup the system threads for compression
@@ -67,7 +63,7 @@ class PigzFile:
 
         self.process_compression_target()
 
-        self.check_input_size = os.stat(compression_target).st_size
+        self.check_input_size = os.stat(input_file).st_size
 
     def _determine_mtime(self):
         """
@@ -77,7 +73,7 @@ class PigzFile:
         MTIME = 0 means no time stamp is available.
         """
         try:
-            return int(os.stat(self.compression_target).st_mtime)
+            return int(os.stat(self.input_file).st_mtime)
         except Exception:
             return int(time.time())
 
@@ -98,7 +94,7 @@ class PigzFile:
         Determine output filename.
         Setup the output file object.
         """
-        base = os.path.basename(self.compression_target)
+        base = os.path.basename(self.input_file)
         self.output_filename = base + ".gz"
         self.output_file = open(self.output_filename, "wb")
 
@@ -175,7 +171,7 @@ class PigzFile:
         try:
             # RFC 1952 requires the FNAME field to be Latin-1. Do not
             # include filenames that cannot be represented that way.
-            fname = os.path.basename(self.compression_target)
+            fname = os.path.basename(self.input_file)
             if not isinstance(fname, bytes):
                 fname = fname.encode("latin-1")
             if fname.endswith(b".gz"):
@@ -193,7 +189,7 @@ class PigzFile:
         This method is run on the read thread.
         """
         chunk_num = 0
-        with open(self.compression_target, "rb") as input_file:
+        with open(self.input_file, "rb") as input_file:
             while True:
                 chunk = input_file.read(self.blocksize)
                 # Break out of the loop if we didn't read anything
@@ -286,8 +282,6 @@ class PigzFile:
         self.output_file.flush()
         self.output_file.close()
 
-        self.handle_keep()
-
         self.close_workers()
 
     def write_file_trailer(self):
@@ -301,15 +295,6 @@ class PigzFile:
             (self.input_size & 0xFFFFFFFF).to_bytes(4, sys.byteorder)
         )
 
-    def handle_keep(self):
-        """
-        Delete the file / folder if the user so desires.
-        """
-        if not self.keep:
-            if os.path.isdir(self.compression_target):
-                shutil.rmtree(self.compression_target)
-            else:
-                os.remove(self.compression_target)
 
     def close_workers(self):
         """
@@ -318,11 +303,6 @@ class PigzFile:
         self.pool.terminate()
         self.pool.join()
 
-
-def main():
-    """ Run pigz Python as a standalone module """
-    # from argparse import ArgumentParser
-
-
-if __name__ == "__main__":
-    main()
+def compress_file(source_file):
+    # TODO: This is still just returning in like a second and then you have to wait on your own
+    PigzFile(source_file)
