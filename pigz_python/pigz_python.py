@@ -61,6 +61,12 @@ class PigzFile:
         # Setup write thread
         self.write_thread = Thread(target=self.write_file)
 
+    def __enter__(self):
+        pass
+
+    def __exit__(self):
+        pass
+
     def _determine_mtime(self):
         """
         Determine MTIME to write out in Unix format (seconds since Unix epoch).
