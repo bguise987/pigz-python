@@ -273,7 +273,6 @@ class PigzFile:
     def clean_up(self):
         """
         Close the output file.
-        Delete original file or directory if the user doesn't want to keep it.
         Clean up the processing pool.
         """
         self.write_file_trailer()
