@@ -61,8 +61,6 @@ class PigzFile:
         # Setup write thread
         self.write_thread = Thread(target=self.write_file)
 
-        self.process_compression_target()
-
     def _determine_mtime(self):
         """
         Determine MTIME to write out in Unix format (seconds since Unix epoch).
@@ -292,7 +290,6 @@ class PigzFile:
             (self.input_size & 0xFFFFFFFF).to_bytes(4, sys.byteorder)
         )
 
-
     def close_workers(self):
         """
         Stop threads and close pool.
@@ -300,6 +297,8 @@ class PigzFile:
         self.pool.terminate()
         self.pool.join()
 
+
 def compress_file(source_file):
     # TODO: This is still just returning in like a second and then you have to wait on your own
-    PigzFile(source_file)
+    pigz_file = PigzFile(source_file)
+    pigz_file.process_compression_target()
