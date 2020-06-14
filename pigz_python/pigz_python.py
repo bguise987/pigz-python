@@ -85,7 +85,7 @@ class PigzFile:
         self._clean_up()
 
     def write(self, data):
-        print(f'Took in some data to PigzPython!')
+        print(f"Took in some data to PigzPython!")
         if isinstance(data, bytes):
             length = len(data)
         else:
@@ -96,13 +96,11 @@ class PigzFile:
 
         if length > 0:
             self.input_buffer.write(data)
-            print(f'Just wrote out data to our input buffer!')
+            print(f"Just wrote out data to our input buffer!")
             if self._first_write:
                 self._first_write = False
-                print(f'Starting our threads....')
+                print(f"Starting our threads....")
                 self._start_all_threads()
-
-
 
         return length
 
@@ -239,8 +237,8 @@ class PigzFile:
                 # Since we previously advanced chunk_num counter before we knew we reached EOF, decrement 1
                 with self._last_chunk_lock:
                     self._last_chunk = chunk_num - 1
-                print(f'Read out the last bit of input data!!!')
-                print(f'Setting last chunk to: {self._last_chunk}')
+                print(f"Read out the last bit of input data!!!")
+                print(f"Setting last chunk to: {self._last_chunk}")
                 break
 
             self.input_size += len(chunk)
@@ -353,7 +351,7 @@ def compress_file(source_file):
     # This really should just do the context manager protocol work for us given a valid file path
     with builtins.open(source_file, "rb") as f_in:
         with PigzFile(source_file) as f_out:
-            print(f'PigzFile type is: {type(f_out)}')
+            print(f"PigzFile type is: {type(f_out)}")
             shutil.copyfileobj(f_in, f_out)
 
     # Old reliable way to do this before API change
