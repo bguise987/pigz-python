@@ -2,6 +2,8 @@
 Functions and classes to speed up compression of files by utilizing
 multiple cores on a system.
 """
+import builtins
+import io
 import os
 import shutil
 import sys
@@ -16,15 +18,22 @@ DEFAULT_BLOCK_SIZE_KB = 128
 
 # 1 is fastest but worst, 9 is slowest but best
 GZIP_COMPRESS_OPTIONS = list(range(1, 9 + 1))
+_COMPRESS_LEVEL_BEST = max(GZIP_COMPRESS_OPTIONS)
 
 # FLG bits
 FNAME = 0x8
 
 
+def open(filename, mode="wb", compresslevel=_COMPRESS_LEVEL_BEST):
+    if mode != "wb":
+        raise NotImplementedError
+    return PigzFile(filename, compresslevel=compresslevel)
+
+
 class PigzFile:
     def __init__(
         self,
-        input_file,
+        filename,
         compresslevel=9,
         blocksize=DEFAULT_BLOCK_SIZE_KB,
         workers=CPU_COUNT,
@@ -32,7 +41,7 @@ class PigzFile:
         """
         Take in a file or directory and gzip using multiple system cores.
         """
-        self.input_file = input_file
+        self.filename = filename
         self.compression_level = compresslevel
         self.blocksize = blocksize * 1000
 
@@ -51,9 +60,6 @@ class PigzFile:
 
         self.chunk_queue = PriorityQueue()
 
-        if os.path.isdir(input_file):
-            raise NotImplementedError
-
         # Setup the system threads for compression
         self.pool = Pool(processes=workers)
         # Setup read thread
@@ -61,11 +67,44 @@ class PigzFile:
         # Setup write thread
         self.write_thread = Thread(target=self._write_file)
 
-    def __enter__(self):
-        pass
+        # Used to signal the operation is complete for use in the context manager protocol
+        self.done_lock = Lock()
 
-    def __exit__(self):
-        pass
+        self.input_buffer = io.BytesIO()
+        self._first_write = True
+
+    def __enter__(self):
+        # self.done_lock.acquire(blocking=True)
+        # self._start_all_threads()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        # Wait until compression and write operations are complete
+        # while self.done_lock.locked():
+        #     pass
+        self._clean_up()
+
+    def write(self, data):
+        print(f'Took in some data to PigzPython!')
+        if isinstance(data, bytes):
+            length = len(data)
+        else:
+            # TODO: This was copied from gzip, is this a bad idea?
+            # accept any data that supports the buffer protocol
+            data = memoryview(data)
+            length = data.nbytes
+
+        if length > 0:
+            self.input_buffer.write(data)
+            print(f'Just wrote out data to our input buffer!')
+            if self._first_write:
+                self._first_write = False
+                print(f'Starting our threads....')
+                self._start_all_threads()
+
+
+
+        return length
 
     def _determine_mtime(self):
         """
@@ -75,7 +114,8 @@ class PigzFile:
         MTIME = 0 means no time stamp is available.
         """
         try:
-            return int(os.stat(self.input_file).st_mtime)
+            # TODO: This is going to need rethought
+            return int(os.stat(self.filename).st_mtime)
         except Exception:
             return int(time.time())
 
@@ -96,9 +136,9 @@ class PigzFile:
         Determine output filename.
         Setup the output file object.
         """
-        base = os.path.basename(self.input_file)
+        base = os.path.basename(self.filename)
         self.output_filename = base + ".gz"
-        self.output_file = open(self.output_filename, "wb")
+        self.output_file = builtins.open(self.output_filename, "wb")
 
         self._write_output_header()
 
@@ -173,7 +213,7 @@ class PigzFile:
         try:
             # RFC 1952 requires the FNAME field to be Latin-1. Do not
             # include filenames that cannot be represented that way.
-            fname = os.path.basename(self.input_file)
+            fname = os.path.basename(self.filename)
             if not isinstance(fname, bytes):
                 fname = fname.encode("latin-1")
             if fname.endswith(b".gz"):
@@ -191,20 +231,22 @@ class PigzFile:
         This method is run on the read thread.
         """
         chunk_num = 0
-        with open(self.input_file, "rb") as input_file:
-            while True:
-                chunk = input_file.read(self.blocksize)
-                # Break out of the loop if we didn't read anything
-                if not chunk:
-                    # Since we previously advanced chunk_num counter before we knew we reached EOF, decrement 1
-                    with self._last_chunk_lock:
-                        self._last_chunk = chunk_num - 1
-                    break
+        # with builtins.open(self.input_buffer, "rb") as input_buffer:
+        while True:
+            chunk = self.input_buffer.read(self.blocksize)
+            # Break out of the loop if we didn't read anything
+            if not chunk:
+                # Since we previously advanced chunk_num counter before we knew we reached EOF, decrement 1
+                with self._last_chunk_lock:
+                    self._last_chunk = chunk_num - 1
+                print(f'Read out the last bit of input data!!!')
+                print(f'Setting last chunk to: {self._last_chunk}')
+                break
 
-                self.input_size += len(chunk)
-                # Apply this chunk to the pool
-                self.pool.apply_async(self.process_chunk, (chunk_num, chunk))
-                chunk_num += 1
+            self.input_size += len(chunk)
+            # Apply this chunk to the pool
+            self.pool.apply_async(self.process_chunk, (chunk_num, chunk))
+            chunk_num += 1
 
     def process_chunk(self, chunk_num: int, chunk: bytes):
         """
@@ -276,6 +318,7 @@ class PigzFile:
         """
         Close the output file.
         Clean up the processing pool.
+        Release the lock to indicate that the compression operation is complete.
         """
         self._write_file_trailer()
 
@@ -284,6 +327,8 @@ class PigzFile:
         self.output_file.close()
 
         self._close_workers()
+
+        # self.done_lock.release()
 
     def _write_file_trailer(self):
         """
@@ -306,9 +351,11 @@ class PigzFile:
 
 def compress_file(source_file):
     # This really should just do the context manager protocol work for us given a valid file path
-    # with open(source_file, 'rb') as f_in:
-    #     with PigzFile(source_file) as f_out:
-    #         shutil.copyfileobj(f_in, f_out)
+    with builtins.open(source_file, "rb") as f_in:
+        with PigzFile(source_file) as f_out:
+            print(f'PigzFile type is: {type(f_out)}')
+            shutil.copyfileobj(f_in, f_out)
 
-    foo = PigzFile(source_file)
-    foo._start_all_threads()
+    # Old reliable way to do this before API change
+    # foo = PigzFile(source_file)
+    # foo._start_all_threads()
