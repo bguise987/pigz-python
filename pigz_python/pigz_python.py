@@ -232,19 +232,19 @@ class PigzFile:
         # with builtins.open(self.input_buffer, "rb") as input_buffer:
         while True:
             chunk = self.input_buffer.read(self.blocksize)
-            # Break out of the loop if we didn't read anything
             if not chunk:
-                # Since we previously advanced chunk_num counter before we knew we reached EOF, decrement 1
+                # Last chunk is the last value of chunk_num
                 with self._last_chunk_lock:
-                    self._last_chunk = chunk_num - 1
+                    self._last_chunk = chunk_num
                 print(f"Read out the last bit of input data!!!")
                 print(f"Setting last chunk to: {self._last_chunk}")
+                # Break out of the loop if we didn't read anything
                 break
-
-            self.input_size += len(chunk)
-            # Apply this chunk to the pool
-            self.pool.apply_async(self.process_chunk, (chunk_num, chunk))
-            chunk_num += 1
+            else:
+                self.input_size += len(chunk)
+                chunk_num += 1
+                # Apply this chunk to the pool
+                self.pool.apply_async(self.process_chunk, (chunk_num, chunk))
 
     def process_chunk(self, chunk_num: int, chunk: bytes):
         """
