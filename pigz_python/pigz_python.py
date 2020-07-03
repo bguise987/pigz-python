@@ -252,7 +252,7 @@ class PigzFile:
         This method is run on the pool.
         """
         with self._last_chunk_lock:
-            last_chunk = True if chunk_num == self._last_chunk else False
+            last_chunk = (chunk_num == self._last_chunk)
         compressed_chunk = self._compress_chunk(chunk, last_chunk)
         self.chunk_queue.put((chunk_num, chunk, compressed_chunk))
 
