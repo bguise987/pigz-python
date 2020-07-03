@@ -72,6 +72,8 @@ class PigzFile:
 
         self.input_buffer = io.BytesIO()
         self._first_write = True
+        print(f"Starting our threads....")
+        self._start_all_threads()
 
     def __enter__(self):
         # self.done_lock.acquire(blocking=True)
@@ -99,8 +101,6 @@ class PigzFile:
             print(f"Just wrote out data to our input buffer!")
             if self._first_write:
                 self._first_write = False
-                print(f"Starting our threads....")
-                self._start_all_threads()
 
         return length
 
