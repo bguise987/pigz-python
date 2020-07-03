@@ -2,6 +2,7 @@
 Functions and classes to speed up compression of files by utilizing
 multiple cores on a system.
 """
+import _compression
 import builtins
 import io
 import os
@@ -30,7 +31,7 @@ def open(filename, mode="wb", compresslevel=_COMPRESS_LEVEL_BEST):
     return PigzFile(filename, compresslevel=compresslevel)
 
 
-class PigzFile:
+class PigzFile(_compression.BaseStream):
     def __init__(
         self,
         filename,
@@ -252,7 +253,7 @@ class PigzFile:
         This method is run on the pool.
         """
         with self._last_chunk_lock:
-            last_chunk = (chunk_num == self._last_chunk)
+            last_chunk = chunk_num == self._last_chunk
         compressed_chunk = self._compress_chunk(chunk, last_chunk)
         self.chunk_queue.put((chunk_num, chunk, compressed_chunk))
 
