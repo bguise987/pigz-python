@@ -77,14 +77,13 @@ class PigzFile(_compression.BaseStream):
         self._start_all_threads()
 
     def __enter__(self):
-        # self.done_lock.acquire(blocking=True)
-        # self._start_all_threads()
+        self.done_lock.acquire(blocking=True)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         # Wait until compression and write operations are complete
-        # while self.done_lock.locked():
-        #     pass
+        while self.done_lock.locked():
+            pass
         self._clean_up()
 
     def write(self, data):
@@ -305,7 +304,7 @@ class PigzFile(_compression.BaseStream):
                 # If the queue is empty, we're likely waiting for data.
                 time.sleep(0.5)
         # Loop breaks out if we've received the final chunk
-        self._clean_up()
+        self.done_lock.release()
 
     def _calculate_chunk_check(self, chunk: bytes):
         """
@@ -327,7 +326,6 @@ class PigzFile(_compression.BaseStream):
 
         self._close_workers()
 
-        # self.done_lock.release()
 
     def _write_file_trailer(self):
         """
