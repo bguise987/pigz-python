@@ -16,6 +16,7 @@ DEFAULT_BLOCK_SIZE_KB = 128
 
 # 1 is fastest but worst, 9 is slowest but best
 GZIP_COMPRESS_OPTIONS = list(range(1, 9 + 1))
+_COMPRESS_LEVEL_BEST = max(GZIP_COMPRESS_OPTIONS)
 
 # FLG bits
 FNAME = 0x8
