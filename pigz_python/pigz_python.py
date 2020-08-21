@@ -283,8 +283,6 @@ class PigzFile:
         self.output_file.flush()
         self.output_file.close()
 
-        self.handle_keep()
-
         self.close_workers()
 
     def write_file_trailer(self):
@@ -297,16 +295,6 @@ class PigzFile:
         self.output_file.write(
             (self.input_size & 0xFFFFFFFF).to_bytes(4, sys.byteorder)
         )
-
-    def handle_keep(self):
-        """
-        Delete the file / folder if the user so desires.
-        """
-        if not self.keep:
-            if os.path.isdir(self.compression_target):
-                shutil.rmtree(self.compression_target)
-            else:
-                os.remove(self.compression_target)
 
     def close_workers(self):
         """
