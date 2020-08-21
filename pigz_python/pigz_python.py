@@ -319,10 +319,5 @@ class PigzFile:
         self.pool.join()
 
 
-def main():
-    """ Run pigz Python as a standalone module """
-    # from argparse import ArgumentParser
-
-
-if __name__ == "__main__":
-    main()
+def compress_file(source_file):
+    PigzFile(source_file)
