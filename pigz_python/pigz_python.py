@@ -77,11 +77,15 @@ class PigzFile(_compression.BaseStream):
         self._start_all_threads()
 
     def __enter__(self):
-        self.done_lock.acquire(blocking=True)
+        self.done_lock.acquire(blocking=False)
+        print(f"Just acquired the lock...")
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         # Wait until compression and write operations are complete
+        print(f"Trying to exit, waiting for the lock to release...")
+        # TODO: This is the problem....
+        # https://stackoverflow.com/questions/53485708/how-the-write-read-and-getvalue-methods-of-python-io-bytesio-work
         while self.done_lock.locked():
             pass
         self._clean_up()
@@ -97,10 +101,14 @@ class PigzFile(_compression.BaseStream):
             length = data.nbytes
 
         if length > 0:
-            self.input_buffer.write(data)
-            print(f"Just wrote out data to our input buffer!")
+            bytes_to_buf = self.input_buffer.write(data)
+            print(f"Just wrote out {bytes_to_buf} bytes data to our input buffer!")
+            print(f"Contents of buffer are: {self.input_buffer.getvalue()}")
+
             if self._first_write:
                 self._first_write = False
+                # Start the read thread
+                self.read_thread.start()
 
         return length
 
@@ -117,6 +125,7 @@ class PigzFile(_compression.BaseStream):
         except Exception:
             return int(time.time())
 
+    # TODO: Consider renaming this now that it doesn't start the read thread
     def _start_all_threads(self):
         """
         Read in the file(s) in chunks.
@@ -126,8 +135,6 @@ class PigzFile(_compression.BaseStream):
         self._setup_output_file()
         # Start the write thread first so it's ready to accept data
         self.write_thread.start()
-        # Start the read thread
-        self.read_thread.start()
 
     def _setup_output_file(self):
         """
@@ -231,7 +238,16 @@ class PigzFile(_compression.BaseStream):
         chunk_num = 0
         # with builtins.open(self.input_buffer, "rb") as input_buffer:
         while True:
+            print(f"Brief nap time...zzzz")
+            time.sleep(1)
+            print(f"Trying to read from the input buffer...")
             chunk = self.input_buffer.read(self.blocksize)
+            print(
+                f"Received {chunk} from the input buffer, it is of size: {len(chunk)}"
+            )
+            print(
+                f"*** Trying to read shit here, contents of buffer are: {self.input_buffer.getvalue()}"
+            )
             if not chunk:
                 # Last chunk is the last value of chunk_num
                 with self._last_chunk_lock:
@@ -244,6 +260,9 @@ class PigzFile(_compression.BaseStream):
                 self.input_size += len(chunk)
                 chunk_num += 1
                 # Apply this chunk to the pool
+                print(
+                    f"Read some data from the buffer, chunk num: {chunk_num}, size: {len(chunk)}"
+                )
                 self.pool.apply_async(self.process_chunk, (chunk_num, chunk))
 
     def process_chunk(self, chunk_num: int, chunk: bytes):
@@ -295,6 +314,7 @@ class PigzFile(_compression.BaseStream):
                     # Calculate running checksum
                     self._calculate_chunk_check(chunk)
                     # Write chunk to file, advance next chunk we're looking for
+                    print(f"Writing compressed chunk # {chunk_num} to output file...")
                     self.output_file.write(compressed_chunk)
                     # If this was the last chunk, we can break the loop and close the file
                     if chunk_num == self._last_chunk:
@@ -303,8 +323,10 @@ class PigzFile(_compression.BaseStream):
             else:
                 # If the queue is empty, we're likely waiting for data.
                 time.sleep(0.5)
+                print(f"Write threading sleeping while we wait for data...zzz")
         # Loop breaks out if we've received the final chunk
-        self.done_lock.release()
+        # self.done_lock.release()
+        print(f"Just released the lock...")
 
     def _calculate_chunk_check(self, chunk: bytes):
         """
@@ -318,14 +340,15 @@ class PigzFile(_compression.BaseStream):
         Clean up the processing pool.
         Release the lock to indicate that the compression operation is complete.
         """
+        print(f"Writing file trailer and flushing buffers...")
         self._write_file_trailer()
 
         # Flush internal buffers
         self.output_file.flush()
         self.output_file.close()
+        self.input_buffer.close()
 
         self._close_workers()
-
 
     def _write_file_trailer(self):
         """
