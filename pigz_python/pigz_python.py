@@ -26,20 +26,16 @@ class PigzFile:
     def __init__(
         self,
         compression_target,
-        keep=True,
-        compresslevel=9,
+        compresslevel=_COMPRESS_LEVEL_BEST,
         blocksize=DEFAULT_BLOCK_SIZE_KB,
-        recursive=True,
         workers=CPU_COUNT,
     ):
         """
         Take in a file or directory and gzip using multiple system cores.
         """
         self.compression_target = compression_target
-        self.keep = keep
         self.compression_level = compresslevel
         self.blocksize = blocksize * 1000
-        self.recursive = recursive
 
         self.mtime = self._determine_mtime()
 
