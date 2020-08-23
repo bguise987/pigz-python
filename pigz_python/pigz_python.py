@@ -303,5 +303,10 @@ class PigzFile:
         self.pool.join()
 
 
-def compress_file(source_file):
-    PigzFile(source_file)
+def compress_file(
+    source_file,
+    compresslevel=_COMPRESS_LEVEL_BEST,
+    blocksize=DEFAULT_BLOCK_SIZE_KB,
+    workers=CPU_COUNT,
+):
+    PigzFile(source_file, compresslevel, blocksize, workers)
