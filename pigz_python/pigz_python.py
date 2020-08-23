@@ -64,7 +64,6 @@ class PigzFile:
 
         self.process_compression_target()
 
-        self.check_input_size = os.stat(compression_target).st_size
 
     def _determine_mtime(self):
         """
