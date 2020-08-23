@@ -64,7 +64,6 @@ class PigzFile:
 
         self.process_compression_target()
 
-
     def _determine_mtime(self):
         """
         Determine MTIME to write out in Unix format (seconds since Unix epoch).
@@ -188,21 +187,21 @@ class PigzFile:
         Read {filename} in {blocksize} chunks.
         This method is run on the read thread.
         """
+        # Initialize this to 0 so our increment sets first chunk to 1
         chunk_num = 0
         with open(self.compression_target, "rb") as input_file:
             while True:
                 chunk = input_file.read(self.blocksize)
                 # Break out of the loop if we didn't read anything
                 if not chunk:
-                    # Since we previously advanced chunk_num counter before we knew we reached EOF, decrement 1
                     with self._last_chunk_lock:
-                        self._last_chunk = chunk_num - 1
+                        self._last_chunk = chunk_num
                     break
 
                 self.input_size += len(chunk)
+                chunk_num += 1
                 # Apply this chunk to the pool
                 self.pool.apply_async(self.process_chunk, (chunk_num, chunk))
-                chunk_num += 1
 
     def process_chunk(self, chunk_num: int, chunk: bytes):
         """
@@ -240,7 +239,7 @@ class PigzFile:
         Priority is the chunk number, so we can keep track of which chunk to get next.
         This is run from the write thread.
         """
-        next_chunk_num = 0
+        next_chunk_num = 1
         while True:
             if not self.chunk_queue.empty():
                 chunk_num, chunk, compressed_chunk = self.chunk_queue.get()
