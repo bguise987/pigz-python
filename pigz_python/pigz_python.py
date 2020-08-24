@@ -88,6 +88,9 @@ class PigzFile:
         # Start the read thread
         self.read_thread.start()
 
+        # Block until writing is complete; this prevents us from returning prior to the work being done
+        self.write_thread.join()
+
     def setup_output_file(self):
         """
         Determine output filename.
