@@ -110,7 +110,8 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         Write gzip header to file
         See RFC documentation: http://www.zlib.org/rfc-gzip.html#header-trailer
         """
-        # Write ID (IDentification) ID 1, then ID 2. These denote the file as being gzip format.
+        # Write ID (IDentification) ID 1, then ID 2.
+        # These denote the file as being gzip format.
         self.output_file.write((0x1F).to_bytes(1, sys.byteorder))
         self.output_file.write((0x8B).to_bytes(1, sys.byteorder))
         # Write the CM (compression method)
@@ -262,7 +263,8 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
                     self.calculate_chunk_check(chunk)
                     # Write chunk to file, advance next chunk we're looking for
                     self.output_file.write(compressed_chunk)
-                    # If this was the last chunk, we can break the loop and close the file
+                    # If this was the last chunk,
+                    # we can break the loop and close the file
                     if chunk_num == self._last_chunk:
                         break
                     next_chunk_num += 1
