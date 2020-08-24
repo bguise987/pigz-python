@@ -3,7 +3,6 @@ Functions and classes to speed up compression of files by utilizing
 multiple cores on a system.
 """
 import os
-import shutil
 import sys
 import time
 import zlib
@@ -16,29 +15,28 @@ DEFAULT_BLOCK_SIZE_KB = 128
 
 # 1 is fastest but worst, 9 is slowest but best
 GZIP_COMPRESS_OPTIONS = list(range(1, 9 + 1))
+_COMPRESS_LEVEL_BEST = max(GZIP_COMPRESS_OPTIONS)
 
 # FLG bits
 FNAME = 0x8
 
 
-class PigzFile:
+class PigzFile:  # pylint: disable=too-many-instance-attributes
+    """ Class to implement Pigz functionality in Python """
+
     def __init__(
         self,
         compression_target,
-        keep=True,
-        compresslevel=9,
+        compresslevel=_COMPRESS_LEVEL_BEST,
         blocksize=DEFAULT_BLOCK_SIZE_KB,
-        recursive=True,
         workers=CPU_COUNT,
     ):
         """
         Take in a file or directory and gzip using multiple system cores.
         """
         self.compression_target = compression_target
-        self.keep = keep
         self.compression_level = compresslevel
         self.blocksize = blocksize * 1000
-        self.recursive = recursive
 
         self.mtime = self._determine_mtime()
 
@@ -67,18 +65,17 @@ class PigzFile:
 
         self.process_compression_target()
 
-        self.check_input_size = os.stat(compression_target).st_size
-
     def _determine_mtime(self):
         """
         Determine MTIME to write out in Unix format (seconds since Unix epoch).
         From http://www.zlib.org/rfc-gzip.html#header-trailer:
-        If the compressed data did not come from a file, MTIME is set to the time at which compression started.
+        If the compressed data did not come from a file, MTIME is set to the time at
+        which compression started.
         MTIME = 0 means no time stamp is available.
         """
         try:
             return int(os.stat(self.compression_target).st_mtime)
-        except Exception:
+        except Exception:  # pylint: disable=broad-except
             return int(time.time())
 
     def process_compression_target(self):
@@ -92,6 +89,10 @@ class PigzFile:
         self.write_thread.start()
         # Start the read thread
         self.read_thread.start()
+
+        # Block until writing is complete
+        # This prevents us from returning prior to the work being done
+        self.write_thread.join()
 
     def setup_output_file(self):
         """
@@ -109,7 +110,8 @@ class PigzFile:
         Write gzip header to file
         See RFC documentation: http://www.zlib.org/rfc-gzip.html#header-trailer
         """
-        # Write ID (IDentification) ID 1, then ID 2. These denote the file as being gzip format.
+        # Write ID (IDentification) ID 1, then ID 2.
+        # These denote the file as being gzip format.
         self.output_file.write((0x1F).to_bytes(1, sys.byteorder))
         self.output_file.write((0x8B).to_bytes(1, sys.byteorder))
         # Write the CM (compression method)
@@ -135,14 +137,16 @@ class PigzFile:
         # Write the FNAME
         self.output_file.write(fname)
 
-    def _determine_extra_flags(self, compression_level):
+    @staticmethod
+    def _determine_extra_flags(compression_level):
         """
         Determine the XFL or eXtra FLags value based on compression level.
         Note this is copied from the pigz implementation.
         """
         return 2 if compression_level >= 9 else 4 if compression_level == 1 else 0
 
-    def _determine_operating_system(self):
+    @staticmethod
+    def _determine_operating_system():
         """
         Return appropriate number based on OS format.
         0 - FAT filesystem (MS-DOS, OS/2, NT/Win32)
@@ -163,7 +167,7 @@ class PigzFile:
         """
         if sys.platform.startswith(("freebsd", "linux", "aix", "darwin")):
             return 3
-        elif sys.platform.startswith(("win32")):
+        if sys.platform.startswith(("win32")):
             return 0
 
         return 255
@@ -192,21 +196,21 @@ class PigzFile:
         Read {filename} in {blocksize} chunks.
         This method is run on the read thread.
         """
+        # Initialize this to 0 so our increment sets first chunk to 1
         chunk_num = 0
         with open(self.compression_target, "rb") as input_file:
             while True:
                 chunk = input_file.read(self.blocksize)
                 # Break out of the loop if we didn't read anything
                 if not chunk:
-                    # Since we previously advanced chunk_num counter before we knew we reached EOF, decrement 1
                     with self._last_chunk_lock:
-                        self._last_chunk = chunk_num - 1
+                        self._last_chunk = chunk_num
                     break
 
                 self.input_size += len(chunk)
+                chunk_num += 1
                 # Apply this chunk to the pool
                 self.pool.apply_async(self.process_chunk, (chunk_num, chunk))
-                chunk_num += 1
 
     def process_chunk(self, chunk_num: int, chunk: bytes):
         """
@@ -214,7 +218,7 @@ class PigzFile:
         This method is run on the pool.
         """
         with self._last_chunk_lock:
-            last_chunk = True if chunk_num == self._last_chunk else False
+            last_chunk = chunk_num == self._last_chunk
         compressed_chunk = self.compress_chunk(chunk, last_chunk)
         self.chunk_queue.put((chunk_num, chunk, compressed_chunk))
 
@@ -244,13 +248,14 @@ class PigzFile:
         Priority is the chunk number, so we can keep track of which chunk to get next.
         This is run from the write thread.
         """
-        next_chunk_num = 0
+        next_chunk_num = 1
         while True:
             if not self.chunk_queue.empty():
                 chunk_num, chunk, compressed_chunk = self.chunk_queue.get()
 
                 if chunk_num != next_chunk_num:
-                    # If this isn't the next chunk we're looking for, place it back on the queue and sleep
+                    # If this isn't the next chunk we're looking for,
+                    # place it back on the queue and sleep
                     self.chunk_queue.put((chunk_num, chunk, compressed_chunk))
                     time.sleep(0.5)
                 else:
@@ -258,7 +263,8 @@ class PigzFile:
                     self.calculate_chunk_check(chunk)
                     # Write chunk to file, advance next chunk we're looking for
                     self.output_file.write(compressed_chunk)
-                    # If this was the last chunk, we can break the loop and close the file
+                    # If this was the last chunk,
+                    # we can break the loop and close the file
                     if chunk_num == self._last_chunk:
                         break
                     next_chunk_num += 1
@@ -286,8 +292,6 @@ class PigzFile:
         self.output_file.flush()
         self.output_file.close()
 
-        self.handle_keep()
-
         self.close_workers()
 
     def write_file_trailer(self):
@@ -296,20 +300,11 @@ class PigzFile:
         """
         # Write CRC32
         self.output_file.write((self.checksum).to_bytes(4, sys.byteorder))
-        # Write ISIZE (Input SIZE) - This contains the size of the original (uncompressed) input data modulo 2^32.
+        # Write ISIZE (Input SIZE)
+        # This contains the size of the original (uncompressed) input data modulo 2^32.
         self.output_file.write(
             (self.input_size & 0xFFFFFFFF).to_bytes(4, sys.byteorder)
         )
-
-    def handle_keep(self):
-        """
-        Delete the file / folder if the user so desires.
-        """
-        if not self.keep:
-            if os.path.isdir(self.compression_target):
-                shutil.rmtree(self.compression_target)
-            else:
-                os.remove(self.compression_target)
 
     def close_workers(self):
         """
@@ -319,10 +314,11 @@ class PigzFile:
         self.pool.join()
 
 
-def main():
-    """ Run pigz Python as a standalone module """
-    # from argparse import ArgumentParser
-
-
-if __name__ == "__main__":
-    main()
+def compress_file(
+    source_file,
+    compresslevel=_COMPRESS_LEVEL_BEST,
+    blocksize=DEFAULT_BLOCK_SIZE_KB,
+    workers=CPU_COUNT,
+):
+    """ Helper function to call underlying class """
+    PigzFile(source_file, compresslevel, blocksize, workers)
