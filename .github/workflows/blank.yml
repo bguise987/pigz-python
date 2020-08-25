@@ -39,3 +39,6 @@ jobs:
         # Set max line length to same as Black
         extra-pycodestyle-options: "--max-line-length=88"
         extra-flake8-options: "--max-line-length=88"
+
+    - name: tox
+      run: tox
