@@ -2,12 +2,97 @@
 Unit tests for Pigz Python
 """
 import unittest
+from unittest.mock import MagicMock, patch
 
 import pigz_python.pigz_python as pigz_python
 
 
 class TestPigzPython(unittest.TestCase):
     """ Unit tests for PigzPython class """
+
+    def test_determine_operating_system_windows(self):
+        """
+        Test finding operating system on Windows
+        """
+        mock_sys_platform = "win32"
+        expected_operating_system = 0
+        with patch(
+            "sys.platform", new_callable=MagicMock(return_value=mock_sys_platform)
+        ):
+            operating_system = (
+                pigz_python.PigzFile._determine_operating_system()  # noqa; pylint: disable=protected-access
+            )
+        self.assertEqual(operating_system, expected_operating_system)
+
+    def test_determine_operating_system_freebsd(self):
+        """
+        Test finding operating system on FreeBSD
+        """
+        mock_sys_platform = "freebsd"
+        expected_operating_system = 3
+        with patch(
+            "sys.platform", new_callable=MagicMock(return_value=mock_sys_platform)
+        ):
+            operating_system = (
+                pigz_python.PigzFile._determine_operating_system()  # noqa; pylint: disable=protected-access
+            )
+        self.assertEqual(operating_system, expected_operating_system)
+
+    def test_determine_operating_system_linux(self):
+        """
+        Test finding operating system on Linux
+        """
+        mock_sys_platform = "linux"
+        expected_operating_system = 3
+        with patch(
+            "sys.platform", new_callable=MagicMock(return_value=mock_sys_platform)
+        ):
+            operating_system = (
+                pigz_python.PigzFile._determine_operating_system()  # noqa; pylint: disable=protected-access
+            )
+        self.assertEqual(operating_system, expected_operating_system)
+
+    def test_determine_operating_system_aix(self):
+        """
+        Test finding operating system on AIX
+        """
+        mock_sys_platform = "aix"
+        expected_operating_system = 3
+        with patch(
+            "sys.platform", new_callable=MagicMock(return_value=mock_sys_platform)
+        ):
+            operating_system = (
+                pigz_python.PigzFile._determine_operating_system()  # noqa; pylint: disable=protected-access
+            )
+        self.assertEqual(operating_system, expected_operating_system)
+
+    def test_determine_operating_system_darwin(self):
+        """
+        Test finding operating system on Darwin
+        """
+        mock_sys_platform = "darwin"
+        expected_operating_system = 3
+        with patch(
+            "sys.platform", new_callable=MagicMock(return_value=mock_sys_platform)
+        ):
+            operating_system = (
+                pigz_python.PigzFile._determine_operating_system()  # noqa; pylint: disable=protected-access
+            )
+        self.assertEqual(operating_system, expected_operating_system)
+
+    def test_determine_operating_system_non_standard(self):
+        """
+        Test finding operating system on a non-standard OS
+        """
+        mock_sys_platform = "vms"
+        expected_operating_system = 255
+        with patch(
+            "sys.platform", new_callable=MagicMock(return_value=mock_sys_platform)
+        ):
+            operating_system = (
+                pigz_python.PigzFile._determine_operating_system()  # noqa; pylint: disable=protected-access
+            )
+        self.assertEqual(operating_system, expected_operating_system)
 
     def test_determine_extra_flags_max_compression(self):
         """
