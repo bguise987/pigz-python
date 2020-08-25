@@ -26,11 +26,10 @@ jobs:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
 
-    - name: Install tox, update PATH
+    - name: Install tox
       run: |
         python -m pip install --upgrade pip
         pip install tox
-        export PATH=/home/runner/.local/bin:$PATH
 
     # Runs a single command using the runners shell
     - name: Run a one-line script
@@ -51,4 +50,6 @@ jobs:
         extra-flake8-options: "--max-line-length=88"
 
     - name: tox
-      run: tox
+      run: |
+        export PATH=/home/runner/.local/bin:$PATH
+        tox
