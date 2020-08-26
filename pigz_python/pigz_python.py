@@ -63,6 +63,10 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         # Setup write thread
         self.write_thread = Thread(target=self.write_file)
 
+        # Setup the output file
+        self._set_output_filename()
+        self.setup_output_file()
+
         self.process_compression_target()
 
     def _determine_mtime(self):
@@ -84,7 +88,6 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         Process those chunks.
         Write the resulting file out.
         """
-        self.setup_output_file()
         # Start the write thread first so it's ready to accept data
         self.write_thread.start()
         # Start the read thread
@@ -96,14 +99,17 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
 
     def setup_output_file(self):
         """
-        Determine output filename.
         Setup the output file object.
+        """
+        self.output_file = open(self.output_filename, "wb")
+        self.write_output_header()
+
+    def _set_output_filename(self):
+        """
+        Set the output filename based on the input filename
         """
         base = os.path.basename(self.compression_target)
         self.output_filename = base + ".gz"
-        self.output_file = open(self.output_filename, "wb")
-
-        self.write_output_header()
 
     def write_output_header(self):
         """
