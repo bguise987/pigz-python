@@ -291,7 +291,6 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
     def clean_up(self):
         """
         Close the output file.
-        Delete original file or directory if the user doesn't want to keep it.
         Clean up the processing pool.
         """
         self.write_file_trailer()
@@ -300,7 +299,7 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         self.output_file.flush()
         self.output_file.close()
 
-        self.close_workers()
+        self._close_workers()
 
     def write_file_trailer(self):
         """
@@ -314,7 +313,7 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
             (self.input_size & 0xFFFFFFFF).to_bytes(4, sys.byteorder)
         )
 
-    def close_workers(self):
+    def _close_workers(self):
         """
         Close compression thread pool.
         """
