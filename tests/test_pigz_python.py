@@ -9,6 +9,7 @@ import pigz_python.pigz_python as pigz_python
 
 LOREM_IPSUM_FILE = "lorem_ipsum.txt"
 
+
 # pylint: disable=protected-access
 class TestPigzPython(unittest.TestCase):
     """ Unit tests for PigzPython class """
@@ -205,7 +206,7 @@ class TestPigzPython(unittest.TestCase):
         # This output data was generated with compression level 9
         # As the test is written, if the PigzFile default is changed,
         # this test data may also need to be updated.
-        expected_output = b"\n\xc9\xc8,V\x00\xa2D\x85\x92\xd4\xe2\x12\x85\xe2\x92\xa2\xcc\xbct\x00\x00\x00\x00\xff\xff"  # pylint: disable=line-too-long
+        expected_output = b"\n\xc9\xc8,V\x00\xa2D\x85\x92\xd4\xe2\x12\x85\xe2\x92\xa2\xcc\xbct\x00\x00\x00\x00\xff\xff"  # noqa; pylint: disable=line-too-long
         compressed_data = self.pigz_file._compress_chunk(
             input_data, is_last_chunk=False
         )
