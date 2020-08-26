@@ -164,3 +164,39 @@ class TestPigzPython(unittest.TestCase):
         expected_output_filename = f"{LOREM_IPSUM_FILE}.gz"
         self.pigz_file._set_output_filename()
         self.assertEqual(self.pigz_file.output_filename, expected_output_filename)
+
+    def test_determine_fname_basic_case(self):
+        """
+        Test that fname is returned properly for a latin-1 encoded filename
+        """
+        filename = "Golden_Ticket.txt"
+        fname = pigz_python.PigzFile._determine_fname(filename)
+
+        filename = filename.encode("latin-1")
+        # Correct fnames are terminated with zero byte
+        expected_filename = filename + b"\0"
+        self.assertEqual(fname, expected_filename)
+
+    def test_determine_fname_gz_extension(self):
+        """
+        Test that fname is returned properly for a file with a .gz extension
+        """
+        filename = "Golden_Ticket.mp3.gz"
+        fname = pigz_python.PigzFile._determine_fname(filename)
+
+        # Trim the .gz from our sample filename
+        filename = filename[:-3].encode("latin-1")
+        # Correct fnames are terminated with zero byte
+        expected_filename = filename + b"\0"
+        self.assertEqual(fname, expected_filename)
+
+    def test_determine_fname_non_latin_1(self):
+        """
+        Test that fname is returned properly for a file that
+        is not able to be encoded in latin-1
+        """
+        filename = "В Питере — пить.mp3"
+        fname = pigz_python.PigzFile._determine_fname(filename)
+        # If FNAME cannot be Latin-1 encoded, return empty FNAME
+        expected_filename = b""
+        self.assertEqual(fname, expected_filename)
