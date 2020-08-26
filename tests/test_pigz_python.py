@@ -20,6 +20,21 @@ class TestPigzPython(unittest.TestCase):
         test_file = Path("tests", LOREM_IPSUM_FILE)
         self.pigz_file = pigz_python.PigzFile(test_file)
 
+    def test_compress_directory_raise_error(self):
+        """
+        Test that PigzFile raises NotImplementedError when given a directory
+        """
+        with self.assertRaises(NotImplementedError):
+            pigz_python.PigzFile(Path("tests"))
+
+    def test_compress_nonexistant_file_raise_error(self):
+        """
+        Test that PigzFile raises FileNotFoundError when given
+        a file that doesn't exist
+        """
+        with self.assertRaises(FileNotFoundError):
+            pigz_python.PigzFile(Path("tests", "fake_file.txt"))
+
     def test_determine_operating_system_windows(self):
         """
         Test finding operating system on Windows
