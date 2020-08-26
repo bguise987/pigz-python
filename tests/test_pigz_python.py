@@ -220,3 +220,21 @@ class TestPigzPython(unittest.TestCase):
         self.pigz_file._close_workers()
         self.pigz_file.pool.close.assert_called_once()
         self.pigz_file.pool.join.assert_called_once()
+
+    def test_process_compression_target(self):
+        """
+        Test that appropriate methods are called to compress the file
+        """
+        # Setup mocks
+        self.pigz_file._setup_output_file = MagicMock()
+        self.pigz_file.write_thread = MagicMock()
+        self.pigz_file.read_thread = MagicMock()
+
+        # Call the target method
+        self.pigz_file.process_compression_target()
+
+        # Assert appropriate methods called
+        self.pigz_file._setup_output_file.assert_called_once()
+        self.pigz_file.write_thread.start.assert_called_once()
+        self.pigz_file.read_thread.start.assert_called_once()
+        self.pigz_file.write_thread.join.assert_called_once()
