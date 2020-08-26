@@ -67,19 +67,6 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         # Setup write thread
         self.write_thread = Thread(target=self._write_file)
 
-    def _determine_mtime(self):
-        """
-        Determine MTIME to write out in Unix format (seconds since Unix epoch).
-        From http://www.zlib.org/rfc-gzip.html#header-trailer:
-        If the compressed data did not come from a file, MTIME is set to the time at
-        which compression started.
-        MTIME = 0 means no time stamp is available.
-        """
-        try:
-            return int(os.stat(self.compression_target).st_mtime)
-        except Exception:  # pylint: disable=broad-except
-            return int(time.time())
-
     def process_compression_target(self):
         """
         Setup output file.
@@ -96,14 +83,6 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         # Block until writing is complete
         # This prevents us from returning prior to the work being done
         self.write_thread.join()
-
-    def _setup_output_file(self):
-        """
-        Setup the output file
-        """
-        self._set_output_filename()
-        self.output_file = open(self.output_filename, "wb")
-        self._write_output_header()
 
     def _set_output_filename(self):
         """
@@ -143,6 +122,27 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
 
         # Write the FNAME
         self.output_file.write(fname)
+
+    def _setup_output_file(self):
+        """
+        Setup the output file
+        """
+        self._set_output_filename()
+        self.output_file = open(self.output_filename, "wb")
+        self._write_output_header()
+
+    def _determine_mtime(self):
+        """
+        Determine MTIME to write out in Unix format (seconds since Unix epoch).
+        From http://www.zlib.org/rfc-gzip.html#header-trailer:
+        If the compressed data did not come from a file, MTIME is set to the time at
+        which compression started.
+        MTIME = 0 means no time stamp is available.
+        """
+        try:
+            return int(os.stat(self.compression_target).st_mtime)
+        except Exception:  # pylint: disable=broad-except
+            return int(time.time())
 
     @staticmethod
     def _determine_extra_flags(compression_level):
