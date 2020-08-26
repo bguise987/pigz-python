@@ -228,3 +228,12 @@ class TestPigzPython(unittest.TestCase):
             input_data, is_last_chunk=False
         )
         self.assertEqual(compressed_data, expected_output)
+
+    def test_close_workers(self):
+        """
+        Test that compression worker pool closed.
+        """
+        self.pigz_file.pool = MagicMock()
+        self.pigz_file._close_workers()
+        self.pigz_file.pool.close.assert_called_once()
+        self.pigz_file.pool.join.assert_called_once()
