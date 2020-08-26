@@ -200,3 +200,31 @@ class TestPigzPython(unittest.TestCase):
         # If FNAME cannot be Latin-1 encoded, return empty FNAME
         expected_filename = b""
         self.assertEqual(fname, expected_filename)
+
+    def test_compress_chunk_last_chunk(self):
+        """
+        Test compressing data when it is the last chunk
+        """
+        input_data = b"This is a test string"
+        # This output data was generated with compression level 9
+        # As the test is written, if the PigzFile default is changed,
+        # this test data may also need to be updated.
+        expected_output = (
+            b"\x0b\xc9\xc8,V\x00\xa2D\x85\x92\xd4\xe2\x12\x85\xe2\x92\xa2\xcc\xbct\x00"
+        )
+        compressed_data = self.pigz_file._compress_chunk(input_data, is_last_chunk=True)
+        self.assertEqual(compressed_data, expected_output)
+
+    def test_compress_chunk_not_last_chunk(self):
+        """
+        Test compressing data when it is NOT the last chunk
+        """
+        input_data = b"This is a test string"
+        # This output data was generated with compression level 9
+        # As the test is written, if the PigzFile default is changed,
+        # this test data may also need to be updated.
+        expected_output = b"\n\xc9\xc8,V\x00\xa2D\x85\x92\xd4\xe2\x12\x85\xe2\x92\xa2\xcc\xbct\x00\x00\x00\x00\xff\xff"
+        compressed_data = self.pigz_file._compress_chunk(
+            input_data, is_last_chunk=False
+        )
+        self.assertEqual(compressed_data, expected_output)
