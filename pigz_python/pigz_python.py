@@ -7,6 +7,7 @@ import sys
 import time
 import zlib
 from multiprocessing.dummy import Pool
+from pathlib import Path
 from queue import PriorityQueue
 from threading import Lock, Thread
 
@@ -53,8 +54,10 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
 
         self.chunk_queue = PriorityQueue()
 
-        if os.path.isdir(compression_target):
+        if Path(compression_target).is_dir():
             raise NotImplementedError
+        if not Path(compression_target).exists():
+            raise FileNotFoundError
 
         # Setup the system threads for compression
         self.pool = Pool(processes=workers)
