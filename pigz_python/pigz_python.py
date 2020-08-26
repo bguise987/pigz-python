@@ -60,6 +60,13 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         if not Path(compression_target).exists():
             raise FileNotFoundError
 
+        # Setup the system threads for compression
+        self.pool = Pool(processes=self.workers)
+        # Setup read thread
+        self.read_thread = Thread(target=self._read_file)
+        # Setup write thread
+        self.write_thread = Thread(target=self._write_file)
+
     def _determine_mtime(self):
         """
         Determine MTIME to write out in Unix format (seconds since Unix epoch).
@@ -79,7 +86,6 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         Process those chunks.
         Write the resulting file out.
         """
-        self._setup_threads()
         self._setup_output_file()
 
         # Start the write thread first so it's ready to accept data
@@ -90,17 +96,6 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         # Block until writing is complete
         # This prevents us from returning prior to the work being done
         self.write_thread.join()
-
-    def _setup_threads(self):
-        """
-        Setup the threads necessary to read, compress, and write.
-        """
-        # Setup the system threads for compression
-        self.pool = Pool(processes=self.workers)
-        # Setup read thread
-        self.read_thread = Thread(target=self._read_file)
-        # Setup write thread
-        self.write_thread = Thread(target=self._write_file)
 
     def _setup_output_file(self):
         """
