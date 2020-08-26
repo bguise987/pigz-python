@@ -106,7 +106,7 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         """
         Set the output filename based on the input filename
         """
-        base = os.path.basename(self.compression_target)
+        base = Path(self.compression_target).name
         self.output_filename = base + ".gz"
 
     def write_output_header(self):
@@ -184,7 +184,7 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         try:
             # RFC 1952 requires the FNAME field to be Latin-1. Do not
             # include filenames that cannot be represented that way.
-            fname = os.path.basename(input_filename)
+            fname = Path(input_filename).name
             if not isinstance(fname, bytes):
                 fname = fname.encode("latin-1")
             if fname.endswith(b".gz"):
