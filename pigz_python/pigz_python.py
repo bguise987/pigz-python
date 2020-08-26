@@ -316,9 +316,9 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
 
     def close_workers(self):
         """
-        Stop threads and close pool.
+        Close compression thread pool.
         """
-        self.pool.terminate()
+        self.pool.close()
         self.pool.join()
 
 
