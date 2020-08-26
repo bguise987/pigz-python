@@ -82,9 +82,9 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
 
     def process_compression_target(self):
         """
-        Read in the file(s) in chunks.
-        Process those chunks.
-        Write the resulting file out.
+        Setup output file.
+        Start read and write threads.
+        Join to write thread.
         """
         self._setup_output_file()
 
