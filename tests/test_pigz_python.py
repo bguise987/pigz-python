@@ -2,6 +2,7 @@
 Unit tests for Pigz Python
 """
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pigz_python.pigz_python as pigz_python
@@ -9,6 +10,13 @@ import pigz_python.pigz_python as pigz_python
 
 class TestPigzPython(unittest.TestCase):
     """ Unit tests for PigzPython class """
+
+    def setUp(self):
+        """
+        Setup PigzFile instance for testing, using a mock file.
+        """
+        test_file = Path("tests/lorem_ipsum.txt")
+        self.pigz_file = pigz_python.PigzFile(test_file)
 
     def test_determine_operating_system_windows(self):
         """
