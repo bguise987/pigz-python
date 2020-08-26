@@ -65,7 +65,8 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
 
         # Setup the output file
         self._set_output_filename()
-        self.setup_output_file()
+        self.output_file = open(self.output_filename, "wb")
+        self.write_output_header()
 
         self.process_compression_target()
 
@@ -97,12 +98,6 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         # This prevents us from returning prior to the work being done
         self.write_thread.join()
 
-    def setup_output_file(self):
-        """
-        Setup the output file object.
-        """
-        self.output_file = open(self.output_filename, "wb")
-        self.write_output_header()
 
     def _set_output_filename(self):
         """
@@ -123,7 +118,7 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         # Write the CM (compression method)
         self.output_file.write((8).to_bytes(1, sys.byteorder))
 
-        fname = self._determine_fname()
+        fname = self._determine_fname(self.compression_target)
         flags = 0
         if fname:
             flags = FNAME
@@ -178,14 +173,15 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
 
         return 255
 
-    def _determine_fname(self):
+    @staticmethod
+    def _determine_fname(input_filename):
         """
         Determine the FNAME (filename) of the source file to the output
         """
         try:
             # RFC 1952 requires the FNAME field to be Latin-1. Do not
             # include filenames that cannot be represented that way.
-            fname = os.path.basename(self.compression_target)
+            fname = os.path.basename(input_filename)
             if not isinstance(fname, bytes):
                 fname = fname.encode("latin-1")
             if fname.endswith(b".gz"):
