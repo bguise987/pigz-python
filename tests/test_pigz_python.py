@@ -9,8 +9,8 @@ import pigz_python.pigz_python as pigz_python
 
 LOREM_IPSUM_FILE = "lorem_ipsum.txt"
 
-
-class TestPigzPython(unittest.TestCase):  # pylint: disable=protected-access
+# pylint: disable=protected-access
+class TestPigzPython(unittest.TestCase):
     """ Unit tests for PigzPython class """
 
     def setUp(self):
