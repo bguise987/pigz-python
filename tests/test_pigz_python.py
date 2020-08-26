@@ -7,6 +7,8 @@ from unittest.mock import MagicMock, patch
 
 import pigz_python.pigz_python as pigz_python
 
+LOREM_IPSUM_FILE = "lorem_ipsum.txt"
+
 
 class TestPigzPython(unittest.TestCase):
     """ Unit tests for PigzPython class """
@@ -15,7 +17,7 @@ class TestPigzPython(unittest.TestCase):
         """
         Setup PigzFile instance for testing, using a mock file.
         """
-        test_file = Path("tests/lorem_ipsum.txt")
+        test_file = Path("tests", LOREM_IPSUM_FILE)
         self.pigz_file = pigz_python.PigzFile(test_file)
 
     def test_determine_operating_system_windows(self):
@@ -139,3 +141,11 @@ class TestPigzPython(unittest.TestCase):
                 value
             )
             self.assertEqual(xfl, expected_xfl)
+
+    def test_set_output_filename(self):
+        """
+        Ensure output filenames are appropriate
+        """
+        expected_output_filename = f"{LOREM_IPSUM_FILE}.gz"
+        self.pigz_file._set_output_filename()
+        self.assertEqual(self.pigz_file.output_filename, expected_output_filename)
