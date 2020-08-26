@@ -11,7 +11,7 @@ import pigz_python.pigz_python as pigz_python
 LOREM_IPSUM_FILE = "lorem_ipsum.txt"
 
 
-# pylint: disable=protected-access
+# pylint: disable=protected-access, too-many-public-methods
 class TestPigzPython(unittest.TestCase):
     """ Unit tests for PigzPython class """
 
