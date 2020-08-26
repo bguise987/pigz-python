@@ -3,7 +3,7 @@ Unit tests for Pigz Python
 """
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, mock_open, patch
 
 import pigz_python.pigz_python as pigz_python
 
@@ -238,3 +238,21 @@ class TestPigzPython(unittest.TestCase):
         self.pigz_file.write_thread.start.assert_called_once()
         self.pigz_file.read_thread.start.assert_called_once()
         self.pigz_file.write_thread.join.assert_called_once()
+
+    def test_setup_output_file(self):
+        """
+        Test that we properly setup the output gzip file
+        """
+        filename = "fun_filename.txt.gz"
+        self.pigz_file._set_output_filename = MagicMock()
+        self.pigz_file._write_output_header = MagicMock()
+        self.pigz_file.output_filename = filename
+
+        with patch("builtins.open", mock_open(read_data="data")) as mock_file:
+            self.pigz_file._setup_output_file()
+            # Assert output file opened appropriately
+            mock_file.assert_called_with(filename, "wb")
+
+            # Assert methods called
+            self.pigz_file._set_output_filename.assert_called_once()
+            self.pigz_file._write_output_header.assert_called_once()
