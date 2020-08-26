@@ -40,8 +40,6 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         self.blocksize = blocksize * 1000
         self.workers = workers
 
-        self.mtime = self._determine_mtime()
-
         self.output_file = None
         self.output_filename = None
 
@@ -112,7 +110,8 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         self.output_file.write((flags).to_bytes(1, sys.byteorder))
 
         # Write MTIME (Modification time)
-        self.output_file.write((self.mtime).to_bytes(4, sys.byteorder))
+        mtime = self._determine_mtime()
+        self.output_file.write((mtime).to_bytes(4, sys.byteorder))
         # Write XFL (eXtra FLags)
         extra_flags = self._determine_extra_flags(self.compression_level)
         self.output_file.write((extra_flags).to_bytes(1, sys.byteorder))
