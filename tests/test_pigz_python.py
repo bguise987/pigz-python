@@ -10,7 +10,7 @@ import pigz_python.pigz_python as pigz_python
 LOREM_IPSUM_FILE = "lorem_ipsum.txt"
 
 
-class TestPigzPython(unittest.TestCase):
+class TestPigzPython(unittest.TestCase):  # pylint: disable=protected-access
     """ Unit tests for PigzPython class """
 
     def setUp(self):
@@ -44,9 +44,7 @@ class TestPigzPython(unittest.TestCase):
         with patch(
             "sys.platform", new_callable=MagicMock(return_value=mock_sys_platform)
         ):
-            operating_system = (
-                pigz_python.PigzFile._determine_operating_system()  # noqa; pylint: disable=protected-access
-            )
+            operating_system = pigz_python.PigzFile._determine_operating_system()
         self.assertEqual(operating_system, expected_operating_system)
 
     def test_determine_operating_system_freebsd(self):
@@ -58,9 +56,7 @@ class TestPigzPython(unittest.TestCase):
         with patch(
             "sys.platform", new_callable=MagicMock(return_value=mock_sys_platform)
         ):
-            operating_system = (
-                pigz_python.PigzFile._determine_operating_system()  # noqa; pylint: disable=protected-access
-            )
+            operating_system = pigz_python.PigzFile._determine_operating_system()
         self.assertEqual(operating_system, expected_operating_system)
 
     def test_determine_operating_system_linux(self):
@@ -72,9 +68,7 @@ class TestPigzPython(unittest.TestCase):
         with patch(
             "sys.platform", new_callable=MagicMock(return_value=mock_sys_platform)
         ):
-            operating_system = (
-                pigz_python.PigzFile._determine_operating_system()  # noqa; pylint: disable=protected-access
-            )
+            operating_system = pigz_python.PigzFile._determine_operating_system()
         self.assertEqual(operating_system, expected_operating_system)
 
     def test_determine_operating_system_aix(self):
@@ -86,9 +80,7 @@ class TestPigzPython(unittest.TestCase):
         with patch(
             "sys.platform", new_callable=MagicMock(return_value=mock_sys_platform)
         ):
-            operating_system = (
-                pigz_python.PigzFile._determine_operating_system()  # noqa; pylint: disable=protected-access
-            )
+            operating_system = pigz_python.PigzFile._determine_operating_system()
         self.assertEqual(operating_system, expected_operating_system)
 
     def test_determine_operating_system_darwin(self):
@@ -100,9 +92,7 @@ class TestPigzPython(unittest.TestCase):
         with patch(
             "sys.platform", new_callable=MagicMock(return_value=mock_sys_platform)
         ):
-            operating_system = (
-                pigz_python.PigzFile._determine_operating_system()  # noqa; pylint: disable=protected-access
-            )
+            operating_system = pigz_python.PigzFile._determine_operating_system()
         self.assertEqual(operating_system, expected_operating_system)
 
     def test_determine_operating_system_non_standard(self):
@@ -114,9 +104,7 @@ class TestPigzPython(unittest.TestCase):
         with patch(
             "sys.platform", new_callable=MagicMock(return_value=mock_sys_platform)
         ):
-            operating_system = (
-                pigz_python.PigzFile._determine_operating_system()  # noqa; pylint: disable=protected-access
-            )
+            operating_system = pigz_python.PigzFile._determine_operating_system()
         self.assertEqual(operating_system, expected_operating_system)
 
     def test_determine_extra_flags_max_compression(self):
@@ -127,9 +115,7 @@ class TestPigzPython(unittest.TestCase):
         compression_levels = [9, 10, 11, 12]
         expected_xfl = 2
         for value in compression_levels:
-            xfl = pigz_python.PigzFile._determine_extra_flags(  # noqa; pylint: disable=protected-access
-                value
-            )
+            xfl = pigz_python.PigzFile._determine_extra_flags(value)
             self.assertEqual(xfl, expected_xfl)
 
     def test_determine_extra_flags_min_compression(self):
@@ -139,9 +125,7 @@ class TestPigzPython(unittest.TestCase):
         """
         compression_level = 1
         expected_xfl = 4
-        xfl = pigz_python.PigzFile._determine_extra_flags(  # noqa; pylint: disable=protected-access
-            compression_level
-        )
+        xfl = pigz_python.PigzFile._determine_extra_flags(compression_level)
         self.assertEqual(xfl, expected_xfl)
 
     def test_determine_extra_flags_default_compression(self):
@@ -152,9 +136,7 @@ class TestPigzPython(unittest.TestCase):
         compression_levels = [0, 2, 3, 4, 5, 6, 7, 8]
         expected_xfl = 0
         for value in compression_levels:
-            xfl = pigz_python.PigzFile._determine_extra_flags(  # noqa; pylint: disable=protected-access
-                value
-            )
+            xfl = pigz_python.PigzFile._determine_extra_flags(value)
             self.assertEqual(xfl, expected_xfl)
 
     def test_set_output_filename(self):
@@ -223,7 +205,7 @@ class TestPigzPython(unittest.TestCase):
         # This output data was generated with compression level 9
         # As the test is written, if the PigzFile default is changed,
         # this test data may also need to be updated.
-        expected_output = b"\n\xc9\xc8,V\x00\xa2D\x85\x92\xd4\xe2\x12\x85\xe2\x92\xa2\xcc\xbct\x00\x00\x00\x00\xff\xff"
+        expected_output = b"\n\xc9\xc8,V\x00\xa2D\x85\x92\xd4\xe2\x12\x85\xe2\x92\xa2\xcc\xbct\x00\x00\x00\x00\xff\xff"  # pylint: disable=line-too-long
         compressed_data = self.pigz_file._compress_chunk(
             input_data, is_last_chunk=False
         )
