@@ -38,6 +38,7 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         self.compression_target = compression_target
         self.compression_level = compresslevel
         self.blocksize = blocksize * 1000
+        self.workers = workers
 
         self.mtime = self._determine_mtime()
 
@@ -59,20 +60,6 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         if not Path(compression_target).exists():
             raise FileNotFoundError
 
-        # Setup the system threads for compression
-        self.pool = Pool(processes=workers)
-        # Setup read thread
-        self.read_thread = Thread(target=self.read_file)
-        # Setup write thread
-        self.write_thread = Thread(target=self.write_file)
-
-        # Setup the output file
-        self._set_output_filename()
-        self.output_file = open(self.output_filename, "wb")
-        self.write_output_header()
-
-        self.process_compression_target()
-
     def _determine_mtime(self):
         """
         Determine MTIME to write out in Unix format (seconds since Unix epoch).
@@ -92,6 +79,9 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         Process those chunks.
         Write the resulting file out.
         """
+        self._setup_threads()
+        self._setup_output_file()
+
         # Start the write thread first so it's ready to accept data
         self.write_thread.start()
         # Start the read thread
@@ -101,6 +91,24 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         # This prevents us from returning prior to the work being done
         self.write_thread.join()
 
+    def _setup_threads(self):
+        """
+        Setup the threads necessary to read, compress, and write.
+        """
+        # Setup the system threads for compression
+        self.pool = Pool(processes=self.workers)
+        # Setup read thread
+        self.read_thread = Thread(target=self._read_file)
+        # Setup write thread
+        self.write_thread = Thread(target=self._write_file)
+
+    def _setup_output_file(self):
+        """
+        Setup the output file
+        """
+        self._set_output_filename()
+        self.output_file = open(self.output_filename, "wb")
+        self._write_output_header()
 
     def _set_output_filename(self):
         """
@@ -109,7 +117,7 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         base = Path(self.compression_target).name
         self.output_filename = base + ".gz"
 
-    def write_output_header(self):
+    def _write_output_header(self):
         """
         Write gzip header to file
         See RFC documentation: http://www.zlib.org/rfc-gzip.html#header-trailer
@@ -196,7 +204,7 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
 
         return fname
 
-    def read_file(self):
+    def _read_file(self):
         """
         Read {filename} in {blocksize} chunks.
         This method is run on the read thread.
@@ -215,19 +223,19 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
                 self.input_size += len(chunk)
                 chunk_num += 1
                 # Apply this chunk to the pool
-                self.pool.apply_async(self.process_chunk, (chunk_num, chunk))
+                self.pool.apply_async(self._process_chunk, (chunk_num, chunk))
 
-    def process_chunk(self, chunk_num: int, chunk: bytes):
+    def _process_chunk(self, chunk_num: int, chunk: bytes):
         """
         Overall method to handle the chunk and pass it back to the write thread.
         This method is run on the pool.
         """
         with self._last_chunk_lock:
             last_chunk = chunk_num == self._last_chunk
-        compressed_chunk = self.compress_chunk(chunk, last_chunk)
+        compressed_chunk = self._compress_chunk(chunk, last_chunk)
         self.chunk_queue.put((chunk_num, chunk, compressed_chunk))
 
-    def compress_chunk(self, chunk: bytes, is_last_chunk: bool):
+    def _compress_chunk(self, chunk: bytes, is_last_chunk: bool):
         """
         Compress the chunk.
         """
@@ -246,7 +254,7 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
 
         return compressed_data
 
-    def write_file(self):
+    def _write_file(self):
         """
         Write compressed data to disk.
         Read chunks off of the priority queue.
@@ -325,5 +333,6 @@ def compress_file(
     blocksize=DEFAULT_BLOCK_SIZE_KB,
     workers=CPU_COUNT,
 ):
-    """ Helper function to call underlying class """
-    PigzFile(source_file, compresslevel, blocksize, workers)
+    """ Helper function to call underlying class and compression method """
+    pigz_file = PigzFile(source_file, compresslevel, blocksize, workers)
+    pigz_file.process_compression_target()
