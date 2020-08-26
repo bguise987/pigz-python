@@ -2,6 +2,7 @@
 Unit tests for Pigz Python
 """
 import unittest
+import zlib
 from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
@@ -256,3 +257,32 @@ class TestPigzPython(unittest.TestCase):
             # Assert methods called
             self.pigz_file._set_output_filename.assert_called_once()
             self.pigz_file._write_output_header.assert_called_once()
+
+    def test_calculate_chunk_check_from_zero(self):
+        """
+        Test that the crc32 check is properly handled from 0
+        """
+        input_data = b"really fun data"
+        checksum_init = 0
+        expected_checksum = zlib.crc32(input_data, checksum_init)
+
+        self.pigz_file.calculate_chunk_check(input_data)
+
+        self.assertEqual(self.pigz_file.checksum, expected_checksum)
+
+    def test_calculate_chunk_check_from_nonzero(self):
+        """
+        Test that the crc32 check is properly handled from nonzero
+        """
+        input_data1 = b"really fun data"
+        input_data2 = b"MORE fun data!"
+        running_checksum = 0
+        running_checksum = zlib.crc32(input_data1, running_checksum)
+        expected_checksum = zlib.crc32(input_data2, running_checksum)
+
+        # Initialize checksum
+        self.pigz_file.checksum = 2322970659
+        # Calculate for second set of data
+        self.pigz_file.calculate_chunk_check(input_data2)
+
+        self.assertEqual(self.pigz_file.checksum, expected_checksum)
