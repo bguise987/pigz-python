@@ -98,33 +98,57 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         Write gzip header to file
         See RFC documentation: http://www.zlib.org/rfc-gzip.html#header-trailer
         """
-        # Write ID (IDentification) ID 1, then ID 2.
-        # These denote the file as being gzip format.
-        self.output_file.write((0x1F).to_bytes(1, sys.byteorder))
-        self.output_file.write((0x8B).to_bytes(1, sys.byteorder))
-        # Write the CM (compression method)
-        self.output_file.write((8).to_bytes(1, sys.byteorder))
+        self._write_header_id()
+        self._write_header_cm()
 
+        # We must first figure out if we can write out the filename before writing FLG
         fname = self._determine_fname(self.compression_target)
         flags = 0
         if fname:
             flags = FNAME
 
-        # Write FLG (FLaGs)
+        self._write_header_flg(flags)
+
+        self._write_header_mtime()
+        self._write_header_xfl()
+        self._write_header_os()
+
+        # After this point, content of flags (FLG) determines what (if anything)
+        # we write to header
+        if flags & FNAME:
+            # Write the FNAME
+            self.output_file.write(fname)
+
+    def _write_header_id(self):
+        """
+        Write ID (IDentification) ID1, then ID2 to file header
+        These denote the file as being gzip format
+        """
+        self.output_file.write((0x1F).to_bytes(1, sys.byteorder))
+        self.output_file.write((0x8B).to_bytes(1, sys.byteorder))
+
+    def _write_header_cm(self):
+        """ Write the CM (compression method) to file header """
+        self.output_file.write((8).to_bytes(1, sys.byteorder))
+
+    def _write_header_flg(self, flags):
+        """ Write FLG (FLaGs) """
         self.output_file.write((flags).to_bytes(1, sys.byteorder))
 
-        # Write MTIME (Modification time)
+    def _write_header_mtime(self):
+        """ Write MTIME (Modification time) """
         mtime = self._determine_mtime()
         self.output_file.write((mtime).to_bytes(4, sys.byteorder))
-        # Write XFL (eXtra FLags)
+
+    def _write_header_xfl(self):
+        """ Write XFL (eXtra FLags) """
         extra_flags = self._determine_extra_flags(self.compression_level)
         self.output_file.write((extra_flags).to_bytes(1, sys.byteorder))
-        # Write OS
+
+    def _write_header_os(self):
+        """ Write OS """
         os_number = self._determine_operating_system()
         self.output_file.write((os_number).to_bytes(1, sys.byteorder))
-
-        # Write the FNAME
-        self.output_file.write(fname)
 
     def _setup_output_file(self):
         """
