@@ -1,10 +1,11 @@
 """
 Unit tests for Pigz Python
 """
+import sys
 import unittest
 import zlib
 from pathlib import Path
-from unittest.mock import MagicMock, mock_open, patch
+from unittest.mock import MagicMock, call, mock_open, patch
 
 import pigz_python.pigz_python as pigz_python
 
@@ -286,3 +287,15 @@ class TestPigzPython(unittest.TestCase):
         self.pigz_file.calculate_chunk_check(input_data2)
 
         self.assertEqual(self.pigz_file.checksum, expected_checksum)
+
+    def test_write_header_id(self):
+        """
+        Test that we properly write the ID1 and ID2 fields of the gzip header
+        """
+        self.pigz_file.output_file = MagicMock()
+        ID1 = (0x1F).to_bytes(1, sys.byteorder)
+        ID2 = (0x8B).to_bytes(1, sys.byteorder)
+        with patch("sys.byteorder", "little"):
+            self.pigz_file._write_header_id()
+
+            self.pigz_file.output_file.write.assert_has_calls([call(ID1), call(ID2)])
