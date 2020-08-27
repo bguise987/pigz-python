@@ -19,7 +19,11 @@ GZIP_COMPRESS_OPTIONS = list(range(1, 9 + 1))
 _COMPRESS_LEVEL_BEST = max(GZIP_COMPRESS_OPTIONS)
 
 # FLG bits
+FTEXT = 0x1
+FHCRC = 0x2
+FEXTRA = 0x4
 FNAME = 0x8
+FCOMMENT = 0x10
 
 
 class PigzFile:  # pylint: disable=too-many-instance-attributes
