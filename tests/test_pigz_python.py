@@ -297,5 +297,25 @@ class TestPigzPython(unittest.TestCase):
         ID2 = (0x8B).to_bytes(1, sys.byteorder)
         with patch("sys.byteorder", "little"):
             self.pigz_file._write_header_id()
-
             self.pigz_file.output_file.write.assert_has_calls([call(ID1), call(ID2)])
+
+    def test_write_header_cm(self):
+        """
+        Test that we properly write the CM field of the gzip header
+        """
+        self.pigz_file.output_file = MagicMock()
+        CM = (8).to_bytes(1, sys.byteorder)
+        with patch("sys.byteorder", "little"):
+            self.pigz_file._write_header_cm()
+            self.pigz_file.output_file.write.assert_has_calls([call(CM)])
+
+    def test_write_header_flg(self):
+        """
+        Test that we properly write the FLG field of the gzip header
+        """
+        self.pigz_file.output_file = MagicMock()
+        flags = 0xA
+        write_flags = (flags).to_bytes(1, sys.byteorder)
+        with patch("sys.byteorder", "little"):
+            self.pigz_file._write_header_flg(flags)
+            self.pigz_file.output_file.write.assert_has_calls([call(write_flags)])
