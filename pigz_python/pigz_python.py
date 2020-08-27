@@ -103,9 +103,9 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
 
         # We must first figure out if we can write out the filename before writing FLG
         fname = self._determine_fname(self.compression_target)
-        flags = 0
+        flags = 0x0
         if fname:
-            flags = FNAME
+            flags = flags | FNAME
 
         self._write_header_flg(flags)
 
