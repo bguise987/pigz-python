@@ -5,7 +5,7 @@ import sys
 import unittest
 import zlib
 from pathlib import Path
-from unittest.mock import MagicMock, call, mock_open, patch
+from unittest.mock import MagicMock, call, mock_open, patch, Mock
 
 import pigz_python.pigz_python as pigz_python
 
@@ -463,3 +463,31 @@ class TestPigzPython(unittest.TestCase):
         self.pigz_file.output_file.write.assert_has_calls(
             [call(checksum_bytes), call(input_size_bytes)]
         )
+
+    def test_determine_mtime_normal(self):
+        """
+        Test normal case of determing mtime of compression target
+        """
+        self.pigz_file.compression_target = MagicMock()
+        mock_stat = Mock()
+        mock_stat.st_mtime = 9440351000.0284
+        with patch("os.stat", new=MagicMock(return_value=mock_stat)):
+            mtime = self.pigz_file._determine_mtime()
+            assert isinstance(mtime, int)
+            self.assertEqual(mtime, 9440351000)
+
+    def test_determine_mtime_exception(self):
+        """
+        Test exception case of determing mtime of compression target
+        """
+        self.pigz_file.compression_target = MagicMock()
+        mock_time = 9440351000.0284
+
+        def os_stat_throw_exception():
+            raise Exception
+
+        with patch("os.stat", new=os_stat_throw_exception):
+            with patch("time.time", new=MagicMock(return_value=mock_time)):
+                mtime = self.pigz_file._determine_mtime()
+                assert isinstance(mtime, int)
+                self.assertEqual(mtime, 9440351000)
