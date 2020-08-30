@@ -5,7 +5,7 @@ import sys
 import unittest
 import zlib
 from pathlib import Path
-from unittest.mock import MagicMock, call, mock_open, patch, Mock
+from unittest.mock import MagicMock, Mock, call, mock_open, patch
 
 import pigz_python.pigz_python as pigz_python
 
