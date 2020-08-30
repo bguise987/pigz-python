@@ -409,3 +409,23 @@ class TestPigzPython(unittest.TestCase):
         self.pigz_file._write_header_os()
 
         self.pigz_file.output_file.write.assert_called_with(os_field_bytes)
+
+    def test_process_chunk(self):
+        """
+        Test calling process chunk
+        """
+        chunk_num = 2
+        chunk = b"What can I do? I can't take up and down like this no more, babe I need to find out where I am Before I reach the stars Yeah, before I step on Mars"  # noqa; pylint: disable=line-too-long
+        compressed_chunk = b"Jamiroquai"
+        self.pigz_file._last_chunk = chunk_num
+        self.pigz_file._compress_chunk = MagicMock()
+        self.pigz_file._compress_chunk.return_value = compressed_chunk
+        self.pigz_file.chunk_queue = MagicMock()
+
+        self.pigz_file._process_chunk(chunk_num, chunk)
+
+        # Second arg is True since we've setup the test data as last chunk
+        self.pigz_file._compress_chunk.assert_called_with(chunk, True)
+        self.pigz_file.chunk_queue.put.assert_called_with(
+            (chunk_num, chunk, compressed_chunk)
+        )
