@@ -367,3 +367,17 @@ class TestPigzPython(unittest.TestCase):
         self.pigz_file._write_header_mtime.assert_called_once()
         self.pigz_file._write_header_xfl.assert_called_once()
         self.pigz_file._write_header_os.assert_called_once()
+
+    def test_write_header_mtime(self):
+        """
+        Test writing out the mtime to the header
+        """
+        test_time = 8675309
+        test_time_bytes = (test_time).to_bytes(4, sys.byteorder)
+        self.pigz_file._determine_mtime = MagicMock()
+        self.pigz_file._determine_mtime.return_value = test_time
+        self.pigz_file.output_file = MagicMock()
+
+        self.pigz_file._write_header_mtime()
+
+        self.pigz_file.output_file.write.assert_called_with(test_time_bytes)
