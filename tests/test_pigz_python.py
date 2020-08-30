@@ -381,3 +381,17 @@ class TestPigzPython(unittest.TestCase):
         self.pigz_file._write_header_mtime()
 
         self.pigz_file.output_file.write.assert_called_with(test_time_bytes)
+
+    def test_write_header_xfl(self):
+        """
+        Test writing out xfl to the header
+        """
+        extra_flags = 2
+        extra_flags_bytes = (extra_flags).to_bytes(1, sys.byteorder)
+        self.pigz_file._determine_extra_flags = MagicMock()
+        self.pigz_file._determine_extra_flags.return_value = extra_flags
+        self.pigz_file.output_file = MagicMock()
+
+        self.pigz_file._write_header_xfl()
+
+        self.pigz_file.output_file.write.assert_called_with(extra_flags_bytes)
