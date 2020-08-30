@@ -444,3 +444,22 @@ class TestPigzPython(unittest.TestCase):
         self.pigz_file.output_file.flush.assert_called_once()
         self.pigz_file.output_file.close.assert_called_once()
         self.pigz_file._close_workers.assert_called_once()
+
+    def test_write_file_trailer(self):
+        """
+        Test writing the file trailer
+        """
+        checksum = 8675309
+        checksum_bytes = (checksum).to_bytes(4, sys.byteorder)
+        input_size = 42069
+        input_size_bytes = (input_size & 0xFFFFFFFF).to_bytes(4, sys.byteorder)
+
+        self.pigz_file.output_file = MagicMock()
+        self.pigz_file.checksum = checksum
+        self.pigz_file.input_size = input_size
+
+        self.pigz_file.write_file_trailer()
+
+        self.pigz_file.output_file.write.assert_has_calls(
+            [call(checksum_bytes), call(input_size_bytes)]
+        )
