@@ -319,3 +319,51 @@ class TestPigzPython(unittest.TestCase):
         with patch("sys.byteorder", "little"):
             self.pigz_file._write_header_flg(flags)
             self.pigz_file.output_file.write.assert_has_calls([call(write_flags)])
+
+    def test_write_output_header_with_fname(self):
+        """
+        Test that the output header is written with the FNAME field
+        """
+        # Setup mocks
+        self.pigz_file.output_file = MagicMock()
+        self.pigz_file.compression_target = "foo.txt"
+        self.pigz_file._write_header_id = MagicMock()
+        self.pigz_file._write_header_cm = MagicMock()
+        self.pigz_file._write_header_flg = MagicMock()
+        self.pigz_file._write_header_mtime = MagicMock()
+        self.pigz_file._write_header_xfl = MagicMock()
+        self.pigz_file._write_header_os = MagicMock()
+        # Make the call
+        self.pigz_file._write_output_header()
+        # Assertions
+        self.pigz_file._write_header_id.assert_called_once()
+        self.pigz_file._write_header_cm.assert_called_once()
+        self.pigz_file._write_header_flg.assert_called_with(pigz_python.FNAME)
+        self.pigz_file._write_header_mtime.assert_called_once()
+        self.pigz_file._write_header_xfl.assert_called_once()
+        self.pigz_file._write_header_os.assert_called_once()
+
+    def test_write_output_header_without_fname(self):
+        """
+        Test that the output header is written without the FNAME field
+        """
+        # Setup mocks
+        self.pigz_file.output_file = MagicMock()
+        self.pigz_file.compression_target = "В Питере — пить.mp3"
+        self.pigz_file._write_header_id = MagicMock()
+        self.pigz_file._write_header_cm = MagicMock()
+        self.pigz_file._write_header_flg = MagicMock()
+        self.pigz_file._write_header_mtime = MagicMock()
+        self.pigz_file._write_header_xfl = MagicMock()
+        self.pigz_file._write_header_os = MagicMock()
+        # Make the call
+        self.pigz_file._write_output_header()
+        # Assertions
+        self.pigz_file._write_header_id.assert_called_once()
+        self.pigz_file._write_header_cm.assert_called_once()
+
+        self.pigz_file._write_header_flg.assert_called_with(0x0)
+
+        self.pigz_file._write_header_mtime.assert_called_once()
+        self.pigz_file._write_header_xfl.assert_called_once()
+        self.pigz_file._write_header_os.assert_called_once()
