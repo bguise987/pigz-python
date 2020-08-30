@@ -429,3 +429,18 @@ class TestPigzPython(unittest.TestCase):
         self.pigz_file.chunk_queue.put.assert_called_with(
             (chunk_num, chunk, compressed_chunk)
         )
+
+    def test_clean_up(self):
+        """
+        Test that necessary cleanup tasks are completed
+        """
+        self.pigz_file.write_file_trailer = MagicMock()
+        self.pigz_file.output_file = MagicMock()
+        self.pigz_file._close_workers = MagicMock()
+
+        self.pigz_file.clean_up()
+
+        self.pigz_file.write_file_trailer.assert_called_once()
+        self.pigz_file.output_file.flush.assert_called_once()
+        self.pigz_file.output_file.close.assert_called_once()
+        self.pigz_file._close_workers.assert_called_once()
