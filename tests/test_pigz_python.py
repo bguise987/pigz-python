@@ -293,8 +293,8 @@ class TestPigzPython(unittest.TestCase):
         Test that we properly write the ID1 and ID2 fields of the gzip header
         """
         self.pigz_file.output_file = MagicMock()
-        ID1 = (0x1F).to_bytes(1, sys.byteorder)
-        ID2 = (0x8B).to_bytes(1, sys.byteorder)
+        ID1 = (0x1F).to_bytes(1, sys.byteorder)  # pylint: disable=invalid-name
+        ID2 = (0x8B).to_bytes(1, sys.byteorder)  # pylint: disable=invalid-name
         with patch("sys.byteorder", "little"):
             self.pigz_file._write_header_id()
             self.pigz_file.output_file.write.assert_has_calls([call(ID1), call(ID2)])
@@ -304,7 +304,7 @@ class TestPigzPython(unittest.TestCase):
         Test that we properly write the CM field of the gzip header
         """
         self.pigz_file.output_file = MagicMock()
-        CM = (8).to_bytes(1, sys.byteorder)
+        CM = (8).to_bytes(1, sys.byteorder)  # pylint: disable=invalid-name
         with patch("sys.byteorder", "little"):
             self.pigz_file._write_header_cm()
             self.pigz_file.output_file.write.assert_has_calls([call(CM)])
