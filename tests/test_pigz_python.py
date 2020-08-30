@@ -395,3 +395,17 @@ class TestPigzPython(unittest.TestCase):
         self.pigz_file._write_header_xfl()
 
         self.pigz_file.output_file.write.assert_called_with(extra_flags_bytes)
+
+    def test_write_header_os(self):
+        """
+        Test writing out os to the header
+        """
+        os_field = 3
+        os_field_bytes = (os_field).to_bytes(1, sys.byteorder)
+        self.pigz_file._determine_operating_system = MagicMock()
+        self.pigz_file._determine_operating_system.return_value = os_field
+        self.pigz_file.output_file = MagicMock()
+
+        self.pigz_file._write_header_os()
+
+        self.pigz_file.output_file.write.assert_called_with(os_field_bytes)
