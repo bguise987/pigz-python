@@ -7,6 +7,7 @@ import sys
 import time
 import zlib
 from multiprocessing.dummy import Pool
+from pathlib import Path
 from queue import PriorityQueue
 from threading import Lock, Thread
 
@@ -18,7 +19,11 @@ GZIP_COMPRESS_OPTIONS = list(range(1, 9 + 1))
 _COMPRESS_LEVEL_BEST = max(GZIP_COMPRESS_OPTIONS)
 
 # FLG bits
+FTEXT = 0x1
+FHCRC = 0x2
+FEXTRA = 0x4
 FNAME = 0x8
+FCOMMENT = 0x10
 
 
 class PigzFile:  # pylint: disable=too-many-instance-attributes
@@ -37,8 +42,7 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         self.compression_target = compression_target
         self.compression_level = compresslevel
         self.blocksize = blocksize * 1000
-
-        self.mtime = self._determine_mtime()
+        self.workers = workers
 
         self.output_file = None
         self.output_filename = None
@@ -53,17 +57,106 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
 
         self.chunk_queue = PriorityQueue()
 
-        if os.path.isdir(compression_target):
+        if Path(compression_target).is_dir():
             raise NotImplementedError
+        if not Path(compression_target).exists():
+            raise FileNotFoundError
 
         # Setup the system threads for compression
-        self.pool = Pool(processes=workers)
+        self.pool = Pool(processes=self.workers)
         # Setup read thread
-        self.read_thread = Thread(target=self.read_file)
+        self.read_thread = Thread(target=self._read_file)
         # Setup write thread
-        self.write_thread = Thread(target=self.write_file)
+        self.write_thread = Thread(target=self._write_file)
 
-        self.process_compression_target()
+    def process_compression_target(self):
+        """
+        Setup output file.
+        Start read and write threads.
+        Join to write thread.
+        """
+        self._setup_output_file()
+
+        # Start the write thread first so it's ready to accept data
+        self.write_thread.start()
+        # Start the read thread
+        self.read_thread.start()
+
+        # Block until writing is complete
+        # This prevents us from returning prior to the work being done
+        self.write_thread.join()
+
+    def _set_output_filename(self):
+        """
+        Set the output filename based on the input filename
+        """
+        base = Path(self.compression_target).name
+        self.output_filename = base + ".gz"
+
+    def _write_output_header(self):
+        """
+        Write gzip header to file
+        See RFC documentation: http://www.zlib.org/rfc-gzip.html#header-trailer
+        """
+        self._write_header_id()
+        self._write_header_cm()
+
+        # We must first figure out if we can write out the filename before writing FLG
+        fname = self._determine_fname(self.compression_target)
+        flags = 0x0
+        if fname:
+            flags = flags | FNAME
+
+        self._write_header_flg(flags)
+
+        self._write_header_mtime()
+        self._write_header_xfl()
+        self._write_header_os()
+
+        # After this point, content of flags (FLG) determines what (if anything)
+        # we write to header
+        if flags & FNAME:
+            # Write the FNAME
+            self.output_file.write(fname)
+
+    def _write_header_id(self):
+        """
+        Write ID (IDentification) ID1, then ID2 to file header
+        These denote the file as being gzip format
+        """
+        self.output_file.write((0x1F).to_bytes(1, sys.byteorder))
+        self.output_file.write((0x8B).to_bytes(1, sys.byteorder))
+
+    def _write_header_cm(self):
+        """ Write the CM (compression method) to file header """
+        self.output_file.write((8).to_bytes(1, sys.byteorder))
+
+    def _write_header_flg(self, flags):
+        """ Write FLG (FLaGs) """
+        self.output_file.write((flags).to_bytes(1, sys.byteorder))
+
+    def _write_header_mtime(self):
+        """ Write MTIME (Modification time) """
+        mtime = self._determine_mtime()
+        self.output_file.write((mtime).to_bytes(4, sys.byteorder))
+
+    def _write_header_xfl(self):
+        """ Write XFL (eXtra FLags) """
+        extra_flags = self._determine_extra_flags(self.compression_level)
+        self.output_file.write((extra_flags).to_bytes(1, sys.byteorder))
+
+    def _write_header_os(self):
+        """ Write OS """
+        os_number = self._determine_operating_system()
+        self.output_file.write((os_number).to_bytes(1, sys.byteorder))
+
+    def _setup_output_file(self):
+        """
+        Setup the output file
+        """
+        self._set_output_filename()
+        self.output_file = open(self.output_filename, "wb")
+        self._write_output_header()
 
     def _determine_mtime(self):
         """
@@ -77,65 +170,6 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
             return int(os.stat(self.compression_target).st_mtime)
         except Exception:  # pylint: disable=broad-except
             return int(time.time())
-
-    def process_compression_target(self):
-        """
-        Read in the file(s) in chunks.
-        Process those chunks.
-        Write the resulting file out.
-        """
-        self.setup_output_file()
-        # Start the write thread first so it's ready to accept data
-        self.write_thread.start()
-        # Start the read thread
-        self.read_thread.start()
-
-        # Block until writing is complete
-        # This prevents us from returning prior to the work being done
-        self.write_thread.join()
-
-    def setup_output_file(self):
-        """
-        Determine output filename.
-        Setup the output file object.
-        """
-        base = os.path.basename(self.compression_target)
-        self.output_filename = base + ".gz"
-        self.output_file = open(self.output_filename, "wb")
-
-        self.write_output_header()
-
-    def write_output_header(self):
-        """
-        Write gzip header to file
-        See RFC documentation: http://www.zlib.org/rfc-gzip.html#header-trailer
-        """
-        # Write ID (IDentification) ID 1, then ID 2.
-        # These denote the file as being gzip format.
-        self.output_file.write((0x1F).to_bytes(1, sys.byteorder))
-        self.output_file.write((0x8B).to_bytes(1, sys.byteorder))
-        # Write the CM (compression method)
-        self.output_file.write((8).to_bytes(1, sys.byteorder))
-
-        fname = self._determine_fname()
-        flags = 0
-        if fname:
-            flags = FNAME
-
-        # Write FLG (FLaGs)
-        self.output_file.write((flags).to_bytes(1, sys.byteorder))
-
-        # Write MTIME (Modification time)
-        self.output_file.write((self.mtime).to_bytes(4, sys.byteorder))
-        # Write XFL (eXtra FLags)
-        extra_flags = self._determine_extra_flags(self.compression_level)
-        self.output_file.write((extra_flags).to_bytes(1, sys.byteorder))
-        # Write OS
-        os_number = self._determine_operating_system()
-        self.output_file.write((os_number).to_bytes(1, sys.byteorder))
-
-        # Write the FNAME
-        self.output_file.write(fname)
 
     @staticmethod
     def _determine_extra_flags(compression_level):
@@ -172,14 +206,15 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
 
         return 255
 
-    def _determine_fname(self):
+    @staticmethod
+    def _determine_fname(input_filename):
         """
         Determine the FNAME (filename) of the source file to the output
         """
         try:
             # RFC 1952 requires the FNAME field to be Latin-1. Do not
             # include filenames that cannot be represented that way.
-            fname = os.path.basename(self.compression_target)
+            fname = Path(input_filename).name
             if not isinstance(fname, bytes):
                 fname = fname.encode("latin-1")
             if fname.endswith(b".gz"):
@@ -191,7 +226,7 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
 
         return fname
 
-    def read_file(self):
+    def _read_file(self):
         """
         Read {filename} in {blocksize} chunks.
         This method is run on the read thread.
@@ -210,19 +245,19 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
                 self.input_size += len(chunk)
                 chunk_num += 1
                 # Apply this chunk to the pool
-                self.pool.apply_async(self.process_chunk, (chunk_num, chunk))
+                self.pool.apply_async(self._process_chunk, (chunk_num, chunk))
 
-    def process_chunk(self, chunk_num: int, chunk: bytes):
+    def _process_chunk(self, chunk_num: int, chunk: bytes):
         """
         Overall method to handle the chunk and pass it back to the write thread.
         This method is run on the pool.
         """
         with self._last_chunk_lock:
             last_chunk = chunk_num == self._last_chunk
-        compressed_chunk = self.compress_chunk(chunk, last_chunk)
+        compressed_chunk = self._compress_chunk(chunk, last_chunk)
         self.chunk_queue.put((chunk_num, chunk, compressed_chunk))
 
-    def compress_chunk(self, chunk: bytes, is_last_chunk: bool):
+    def _compress_chunk(self, chunk: bytes, is_last_chunk: bool):
         """
         Compress the chunk.
         """
@@ -241,7 +276,7 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
 
         return compressed_data
 
-    def write_file(self):
+    def _write_file(self):
         """
         Write compressed data to disk.
         Read chunks off of the priority queue.
@@ -283,7 +318,6 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
     def clean_up(self):
         """
         Close the output file.
-        Delete original file or directory if the user doesn't want to keep it.
         Clean up the processing pool.
         """
         self.write_file_trailer()
@@ -292,7 +326,7 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         self.output_file.flush()
         self.output_file.close()
 
-        self.close_workers()
+        self._close_workers()
 
     def write_file_trailer(self):
         """
@@ -306,11 +340,11 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
             (self.input_size & 0xFFFFFFFF).to_bytes(4, sys.byteorder)
         )
 
-    def close_workers(self):
+    def _close_workers(self):
         """
-        Stop threads and close pool.
+        Close compression thread pool.
         """
-        self.pool.terminate()
+        self.pool.close()
         self.pool.join()
 
 
@@ -320,5 +354,6 @@ def compress_file(
     blocksize=DEFAULT_BLOCK_SIZE_KB,
     workers=CPU_COUNT,
 ):
-    """ Helper function to call underlying class """
-    PigzFile(source_file, compresslevel, blocksize, workers)
+    """ Helper function to call underlying class and compression method """
+    pigz_file = PigzFile(source_file, compresslevel, blocksize, workers)
+    pigz_file.process_compression_target()
