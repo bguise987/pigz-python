@@ -39,7 +39,7 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         """
         Take in a file or directory and gzip using multiple system cores.
         """
-        self.compression_target = compression_target
+        self.compression_target = Path(compression_target)
         self.compression_level = compresslevel
         self.blocksize = blocksize * 1000
         self.workers = workers
@@ -155,7 +155,8 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         Setup the output file
         """
         self._set_output_filename()
-        self.output_file = open(self.output_filename, "wb")
+        full_path = Path(self.compression_target.parent, self.output_filename)
+        self.output_file = open(full_path, "wb")
         self._write_output_header()
 
     def _determine_mtime(self):

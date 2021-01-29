@@ -245,18 +245,22 @@ class TestPigzPython(unittest.TestCase):
         """
         Test that we properly setup the output gzip file
         """
-        filename = "fun_filename.txt.gz"
+        file_path = Path("/foo/bar/fun_filename.txt")
+        output_filename = file_path.name + ".gz"
+        compressed_file_path = Path(file_path.parent, output_filename)
         self.pigz_file._set_output_filename = MagicMock()
         self.pigz_file._write_output_header = MagicMock()
-        self.pigz_file.output_filename = filename
+        self.pigz_file.output_filename = output_filename
+        self.pigz_file.compression_target = compressed_file_path
 
         with patch("builtins.open", mock_open(read_data="data")) as mock_file:
             self.pigz_file._setup_output_file()
-            # Assert output file opened appropriately
-            mock_file.assert_called_with(filename, "wb")
 
-            # Assert methods called
             self.pigz_file._set_output_filename.assert_called_once()
+
+            # Assert output file opened appropriately
+            mock_file.assert_called_with(compressed_file_path, "wb")
+
             self.pigz_file._write_output_header.assert_called_once()
 
     def test_calculate_chunk_check_from_zero(self):
