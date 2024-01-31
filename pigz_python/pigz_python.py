@@ -118,6 +118,7 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         if flags & FNAME:
             # Write the FNAME
             self.output_file.write(fname)
+        print(f'*** Wrote out the gzip header')
 
     def _write_header_id(self):
         """
@@ -241,6 +242,7 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
                 if not chunk:
                     with self._last_chunk_lock:
                         self._last_chunk = chunk_num
+                        print(f'Just set _last_chunk to {self._last_chunk}')
                     break
 
                 self.input_size += len(chunk)
@@ -256,6 +258,7 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         with self._last_chunk_lock:
             last_chunk = chunk_num == self._last_chunk
         compressed_chunk = self._compress_chunk(chunk, last_chunk)
+        print(f'Just compressed chunk number: {chunk_num}')
         self.chunk_queue.put((chunk_num, chunk, compressed_chunk))
 
     def _compress_chunk(self, chunk: bytes, is_last_chunk: bool):
@@ -272,8 +275,10 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         compressed_data = compressor.compress(chunk)
         if is_last_chunk:
             compressed_data += compressor.flush(zlib.Z_FINISH)
+            print(f'Just performed a Z_FINISH flush')
         else:
             compressed_data += compressor.flush(zlib.Z_SYNC_FLUSH)
+            print(f'Just performed a Z_SYNC_FLUSH flush')
 
         return compressed_data
 
@@ -299,6 +304,7 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
                     self.calculate_chunk_check(chunk)
                     # Write chunk to file, advance next chunk we're looking for
                     self.output_file.write(compressed_chunk)
+                    print(f'***Wrote out file chunk number {chunk_num}')
                     # If this was the last chunk,
                     # we can break the loop and close the file
                     if chunk_num == self._last_chunk:
@@ -335,11 +341,14 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         """
         # Write CRC32
         self.output_file.write((self.checksum).to_bytes(4, sys.byteorder))
+        print(f'*** Wrote out the CRC32: {(self.checksum).to_bytes(4, sys.byteorder)}')
         # Write ISIZE (Input SIZE)
         # This contains the size of the original (uncompressed) input data modulo 2^32.
         self.output_file.write(
             (self.input_size & 0xFFFFFFFF).to_bytes(4, sys.byteorder)
         )
+        print(f'*** Wrote out the ISIZE: {(self.input_size & 0xFFFFFFFF).to_bytes(4, sys.byteorder)}')
+        print(f'*** Wrote the file trailer')
 
     def _close_workers(self):
         """
