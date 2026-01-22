@@ -422,11 +422,12 @@ class TestPigzPython(unittest.TestCase):
         chunk = b"What can I do? I can't take up and down like this no more, babe I need to find out where I am Before I reach the stars Yeah, before I step on Mars"  # noqa; pylint: disable=line-too-long
         compressed_chunk = b"Jamiroquai"
         self.pigz_file._last_chunk = chunk_num
+        is_last = True
         self.pigz_file._compress_chunk = MagicMock()
         self.pigz_file._compress_chunk.return_value = compressed_chunk
         self.pigz_file.chunk_queue = MagicMock()
 
-        self.pigz_file._process_chunk(chunk_num, chunk)
+        self.pigz_file._process_chunk(chunk_num, chunk, is_last)
 
         # Second arg is True since we've setup the test data as last chunk
         self.pigz_file._compress_chunk.assert_called_with(chunk, True)
