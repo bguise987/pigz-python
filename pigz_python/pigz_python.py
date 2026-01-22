@@ -235,27 +235,32 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         # Initialize this to 0 so our increment sets first chunk to 1
         chunk_num = 0
         with open(self.compression_target, "rb") as input_file:
-            while True:
-                chunk = input_file.read(self.blocksize)
-                # Break out of the loop if we didn't read anything
-                if not chunk:
-                    with self._last_chunk_lock:
-                        self._last_chunk = chunk_num
-                    break
-
+            chunk = input_file.read(self.blocksize)
+            while chunk:
                 self.input_size += len(chunk)
                 chunk_num += 1
-                # Apply this chunk to the pool
-                self.pool.apply_async(self._process_chunk, (chunk_num, chunk))
 
-    def _process_chunk(self, chunk_num: int, chunk: bytes):
+                # Peek ahead to determine if this is the last chunk
+                next_chunk = input_file.read(self.blocksize)
+                is_last = not next_chunk
+
+                if is_last:
+                    with self._last_chunk_lock:
+                        self._last_chunk = chunk_num
+
+                # Pass is_last directly to avoid race condition
+                self.pool.apply_async(
+                    self._process_chunk, (chunk_num, chunk, is_last)
+                )
+
+                chunk = next_chunk
+
+    def _process_chunk(self, chunk_num: int, chunk: bytes, is_last: bool):
         """
         Overall method to handle the chunk and pass it back to the write thread.
         This method is run on the pool.
         """
-        with self._last_chunk_lock:
-            last_chunk = chunk_num == self._last_chunk
-        compressed_chunk = self._compress_chunk(chunk, last_chunk)
+        compressed_chunk = self._compress_chunk(chunk, is_last)
         self.chunk_queue.put((chunk_num, chunk, compressed_chunk))
 
     def _compress_chunk(self, chunk: bytes, is_last_chunk: bool):
