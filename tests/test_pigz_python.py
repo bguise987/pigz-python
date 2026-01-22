@@ -1,6 +1,7 @@
 """
 Unit tests for Pigz Python
 """
+
 import sys
 import unittest
 import zlib
@@ -14,7 +15,7 @@ LOREM_IPSUM_FILE = "lorem_ipsum.txt"
 
 # pylint: disable=protected-access, too-many-public-methods
 class TestPigzPython(unittest.TestCase):
-    """ Unit tests for PigzPython class """
+    """Unit tests for PigzPython class"""
 
     def setUp(self):
         """

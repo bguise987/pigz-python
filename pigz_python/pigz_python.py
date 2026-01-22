@@ -2,6 +2,7 @@
 Functions and classes to speed up compression of files by utilizing
 multiple cores on a system.
 """
+
 import os
 import sys
 import time
@@ -27,7 +28,7 @@ FCOMMENT = 0x10
 
 
 class PigzFile:  # pylint: disable=too-many-instance-attributes
-    """ Class to implement Pigz functionality in Python """
+    """Class to implement Pigz functionality in Python"""
 
     def __init__(
         self,
@@ -128,25 +129,25 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         self.output_file.write((0x8B).to_bytes(1, sys.byteorder))
 
     def _write_header_cm(self):
-        """ Write the CM (compression method) to file header """
+        """Write the CM (compression method) to file header"""
         self.output_file.write((8).to_bytes(1, sys.byteorder))
 
     def _write_header_flg(self, flags):
-        """ Write FLG (FLaGs) """
+        """Write FLG (FLaGs)"""
         self.output_file.write((flags).to_bytes(1, sys.byteorder))
 
     def _write_header_mtime(self):
-        """ Write MTIME (Modification time) """
+        """Write MTIME (Modification time)"""
         mtime = self._determine_mtime()
         self.output_file.write((mtime).to_bytes(4, sys.byteorder))
 
     def _write_header_xfl(self):
-        """ Write XFL (eXtra FLags) """
+        """Write XFL (eXtra FLags)"""
         extra_flags = self._determine_extra_flags(self.compression_level)
         self.output_file.write((extra_flags).to_bytes(1, sys.byteorder))
 
     def _write_header_os(self):
-        """ Write OS """
+        """Write OS"""
         os_number = self._determine_operating_system()
         self.output_file.write((os_number).to_bytes(1, sys.byteorder))
 
@@ -249,9 +250,7 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
                         self._last_chunk = chunk_num
 
                 # Pass is_last directly to avoid race condition
-                self.pool.apply_async(
-                    self._process_chunk, (chunk_num, chunk, is_last)
-                )
+                self.pool.apply_async(self._process_chunk, (chunk_num, chunk, is_last))
 
                 chunk = next_chunk
 
@@ -360,6 +359,6 @@ def compress_file(
     blocksize=DEFAULT_BLOCK_SIZE_KB,
     workers=CPU_COUNT,
 ):
-    """ Helper function to call underlying class and compression method """
+    """Helper function to call underlying class and compression method"""
     pigz_file = PigzFile(source_file, compresslevel, blocksize, workers)
     pigz_file.process_compression_target()
