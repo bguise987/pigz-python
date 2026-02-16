@@ -27,11 +27,12 @@ FCOMMENT = 0x10
 
 
 class PigzFile:  # pylint: disable=too-many-instance-attributes
-    """ Class to implement Pigz functionality in Python """
+    """Class to implement Pigz functionality in Python"""
 
     def __init__(
         self,
         compression_target,
+        output_name=None,
         compresslevel=_COMPRESS_LEVEL_BEST,
         blocksize=DEFAULT_BLOCK_SIZE_KB,
         workers=CPU_COUNT,
@@ -45,7 +46,7 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         self.workers = workers
 
         self.output_file = None
-        self.output_filename = None
+        self.output_filename = output_name
 
         # This is how we know if we're done reading, compressing, & writing the file
         self._last_chunk = -1
@@ -90,8 +91,11 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         """
         Set the output filename based on the input filename
         """
-        base = Path(self.compression_target).name
-        self.output_filename = base + ".gz"
+        if self.output_filename is None:
+            base = Path(self.compression_target).name
+            self.output_filename = base + ".gz"
+        elif ".gz" not in self.output_filename:
+            self.output_filename += ".gz"
 
     def _write_output_header(self):
         """
@@ -128,25 +132,25 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         self.output_file.write((0x8B).to_bytes(1, sys.byteorder))
 
     def _write_header_cm(self):
-        """ Write the CM (compression method) to file header """
+        """Write the CM (compression method) to file header"""
         self.output_file.write((8).to_bytes(1, sys.byteorder))
 
     def _write_header_flg(self, flags):
-        """ Write FLG (FLaGs) """
+        """Write FLG (FLaGs)"""
         self.output_file.write((flags).to_bytes(1, sys.byteorder))
 
     def _write_header_mtime(self):
-        """ Write MTIME (Modification time) """
+        """Write MTIME (Modification time)"""
         mtime = self._determine_mtime()
         self.output_file.write((mtime).to_bytes(4, sys.byteorder))
 
     def _write_header_xfl(self):
-        """ Write XFL (eXtra FLags) """
+        """Write XFL (eXtra FLags)"""
         extra_flags = self._determine_extra_flags(self.compression_level)
         self.output_file.write((extra_flags).to_bytes(1, sys.byteorder))
 
     def _write_header_os(self):
-        """ Write OS """
+        """Write OS"""
         os_number = self._determine_operating_system()
         self.output_file.write((os_number).to_bytes(1, sys.byteorder))
 
@@ -351,10 +355,11 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
 
 def compress_file(
     source_file,
+    output_name=None,
     compresslevel=_COMPRESS_LEVEL_BEST,
     blocksize=DEFAULT_BLOCK_SIZE_KB,
     workers=CPU_COUNT,
 ):
-    """ Helper function to call underlying class and compression method """
-    pigz_file = PigzFile(source_file, compresslevel, blocksize, workers)
+    """Helper function to call underlying class and compression method"""
+    pigz_file = PigzFile(source_file, output_name, compresslevel, blocksize, workers)
     pigz_file.process_compression_target()
