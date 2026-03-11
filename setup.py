@@ -1,4 +1,4 @@
-"""`pigz-python` lives on `GitHub <https://github.com/nix7drummer88/pigz-python>`_."""
+"""`pigz-python` lives on `GitHub <https://github.com/bguise987/pigz-python>`_."""
 from os import path
 
 from setuptools import find_packages, setup
@@ -20,7 +20,7 @@ setup(
     description="A pure Python implementation of the pigz utility.",
     license="MIT",
     keywords="zip gzip compression",
-    url="https://github.com/nix7drummer88/pigz-python",
+    url="https://github.com/bguise987/pigz-python",
     packages=find_packages(),
     long_description=long_description,
     long_description_content_type="text/markdown",

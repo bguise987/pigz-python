@@ -19,14 +19,14 @@ jobs:
     strategy:
       max-parallel: 4
       matrix:
-        python: [3.6, 3.7, 3.8]
+        python: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v6
     - name: Setup Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python }}
     - name: Install Tox and any other packages
@@ -36,7 +36,7 @@ jobs:
       run: tox -e py
 
     - name: Python Code Quality and Lint
-      uses: ricardochaves/python-lint@v1.3.0
+      uses: ricardochaves/python-lint@v1.4.0
       with:
         python-root-list: "pigz_python tests"
         # Set max line length to same as Black
