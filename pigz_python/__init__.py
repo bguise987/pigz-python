@@ -1,4 +1,5 @@
 """ Metadata about the Pigz Python package """
-__version__ = "1.0.1"
+from importlib.metadata import version
+__version__ = version("pigz-python")
 
 from pigz_python.pigz_python import PigzFile, compress_file  # noqa
