@@ -1,27 +1,23 @@
-# This is a basic workflow to help you get started with Actions
-
 name: CI
 
-# Controls when the action will run. Triggers the workflow on push or pull request
-# events but only for the master branch
+# Triggers the workflow on push or pull request events for the main branches
 on:
   push:
     branches: [ master, develop ]
   pull_request:
     branches: [ master, develop ]
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
+  # Runs the test suite against every supported Python version
   build:
-    # The type of runner that the job will run on
     runs-on: ubuntu-latest
     strategy:
+      # Report every failing version, not just the first one
+      fail-fast: false
       max-parallel: 4
       matrix:
         python: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v6
@@ -35,10 +31,26 @@ jobs:
       # Run tox using the version of Python in `PATH`
       run: tox -e py
 
-    - name: Python Code Quality and Lint
-      uses: ricardochaves/python-lint@v1.4.0
+  # Style and static analysis. Runs once rather than once per Python version.
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v6
+    - name: Setup Python
+      uses: actions/setup-python@v6
       with:
-        python-root-list: "pigz_python tests"
-        # Set max line length to same as Black
-        extra-pycodestyle-options: "--max-line-length=88"
-        extra-flake8-options: "--max-line-length=88"
+        python-version: '3.13'
+    - name: Install lint dependencies
+      # pytest is needed so pylint can resolve the test suite's imports.
+      # These are intentionally unpinned; a new linter release can introduce
+      # new checks and turn this job red without any code change.
+      run: pip install black flake8 pycodestyle pylint pytest
+    - name: Black
+      run: black --check --diff pigz_python tests
+    - name: Flake8
+      run: flake8 --max-line-length=88 pigz_python tests
+    - name: Pycodestyle
+      run: pycodestyle --max-line-length=88 pigz_python tests
+    - name: Pylint
+      run: pylint pigz_python tests

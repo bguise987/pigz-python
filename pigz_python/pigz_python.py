@@ -157,6 +157,9 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         """
         self._set_output_filename()
         full_path = Path(self.compression_target.parent, self.output_filename)
+        # Stays open past this method; the write thread closes it in clean_up()
+        # once it has drained the final chunk.
+        # pylint: disable-next=consider-using-with
         self.output_file = open(full_path, "wb")
         self._write_output_header()
 

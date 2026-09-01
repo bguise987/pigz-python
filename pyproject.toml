@@ -35,3 +35,6 @@ classifiers = [
 Homepage = "https://github.com/bguise987/pigz-python"
 Repository = "https://github.com/bguise987/pigz-python"
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+

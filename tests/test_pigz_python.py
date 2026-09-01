@@ -8,7 +8,7 @@ import zlib
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, call, mock_open, patch
 
-import pigz_python.pigz_python as pigz_python
+from pigz_python import pigz_python
 
 LOREM_IPSUM_FILE = "lorem_ipsum.txt"
 
@@ -490,7 +490,8 @@ class TestPigzPython(unittest.TestCase):
         mock_time = 9440351000.0284
 
         def os_stat_throw_exception():
-            raise Exception
+            # Deliberately broad: _determine_mtime catches bare Exception.
+            raise Exception  # pylint: disable=broad-exception-raised
 
         with patch("os.stat", new=os_stat_throw_exception):
             with patch("time.time", new=MagicMock(return_value=mock_time)):

@@ -20,3 +20,8 @@ import pigz_python
 
 pigz_python.compress_file('foo.txt')
 ```
+
+# Running the tests
+```bash
+pytest
+```
