@@ -31,6 +31,24 @@ jobs:
       # Run tox using the version of Python in `PATH`
       run: tox -e py
 
+  # Bounded concurrency stress runs. Deselected from the default suite, so they
+  # need an explicit -m slow. Runs on one version rather than the full matrix.
+  stress:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v6
+    - name: Setup Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.13'
+    - name: Install Tox
+      run: pip install tox
+    - name: Run stress tests
+      # Via tox so this builds and installs the package the same way the test
+      # matrix does; pigz_python/__init__.py needs the installed metadata.
+      run: tox -e py -- -m slow
+
   # Style and static analysis. Runs once rather than once per Python version.
   lint:
     runs-on: ubuntu-latest

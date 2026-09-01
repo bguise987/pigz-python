@@ -37,4 +37,9 @@ Repository = "https://github.com/bguise987/pigz-python"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "slow: bounded concurrency stress runs, deselected by default (use -m slow)",
+]
+# Keep the default run fast; CI has a dedicated job that passes -m slow.
+addopts = "-m 'not slow'"
 
