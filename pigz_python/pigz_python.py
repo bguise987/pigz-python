@@ -235,12 +235,16 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
         """
         Read {filename} in {blocksize} chunks.
         This method is run on the read thread.
+
+        Always emits at least one chunk, so an empty file still gives the write
+        thread a final chunk to terminate on rather than leaving it polling an
+        empty queue forever.
         """
         # Initialize this to 0 so our increment sets first chunk to 1
         chunk_num = 0
         with open(self.compression_target, "rb") as input_file:
             chunk = input_file.read(self.blocksize)
-            while chunk:
+            while True:
                 self.input_size += len(chunk)
                 chunk_num += 1
 
@@ -254,6 +258,9 @@ class PigzFile:  # pylint: disable=too-many-instance-attributes
 
                 # Pass is_last directly to avoid race condition
                 self.pool.apply_async(self._process_chunk, (chunk_num, chunk, is_last))
+
+                if is_last:
+                    break
 
                 chunk = next_chunk
 

@@ -9,6 +9,7 @@ a failure can be reproduced exactly.
 import gzip
 import random
 import struct
+import threading
 from pathlib import Path
 
 from pigz_python import pigz_python
@@ -21,10 +22,42 @@ MB = 1024 * KB
 # block boundary must use block_size_in_bytes() rather than assuming 1024.
 BLOCK_SIZE_UNIT = 1000
 
+# Every compression in this suite finishes in about a second. Anything still
+# running well past that is stuck, not slow, so fail rather than hang the run.
+DEFAULT_TIMEOUT_SECONDS = 60
+
 
 def block_size_in_bytes(blocksize_kb):
     """Return the true byte size of a PigzFile blocksize given in KB."""
     return blocksize_kb * BLOCK_SIZE_UNIT
+
+
+def run_with_timeout(func, timeout, description):
+    """
+    Call `func` on a daemon thread, failing if it does not return in time.
+
+    The pipeline can deadlock rather than crash, which would otherwise stall
+    the whole test session. The worker is a daemon thread so a stuck run cannot
+    keep the interpreter alive after the failure is reported.
+    """
+    raised = []
+
+    def target():
+        try:
+            func()
+        except BaseException as exc:  # pylint: disable=broad-except
+            raised.append(exc)
+
+    thread = threading.Thread(target=target, daemon=True)
+    thread.start()
+    thread.join(timeout)
+
+    if thread.is_alive():
+        raise AssertionError(
+            f"{description} did not finish within {timeout}s; the pipeline is stuck"
+        )
+    if raised:
+        raise raised[0]
 
 
 def compressible_text(size):
@@ -76,12 +109,17 @@ def write_source_file(directory, filename, data):
     return source
 
 
+# Mirrors PigzFile's four knobs plus two test-only controls, so the argument
+# count is inherent to what this wraps rather than a sign it does too much.
+# pylint: disable-next=too-many-arguments
 def compress(
     source,
     compresslevel=pigz_python._COMPRESS_LEVEL_BEST,  # pylint: disable=protected-access
     blocksize=pigz_python.DEFAULT_BLOCK_SIZE_KB,
     workers=pigz_python.CPU_COUNT,
+    *,
     use_class=False,
+    timeout=DEFAULT_TIMEOUT_SECONDS,
 ):
     """
     Compress `source` with pigz-python and return the path to the archive.
@@ -90,11 +128,15 @@ def compress(
     the compress_file() helper, so both public entry points get exercised.
     """
     source = Path(source)
-    if use_class:
-        pigz_file = pigz_python.PigzFile(source, compresslevel, blocksize, workers)
-        pigz_file.process_compression_target()
-    else:
-        pigz_python.compress_file(source, compresslevel, blocksize, workers)
+
+    def do_compress():
+        if use_class:
+            pigz_file = pigz_python.PigzFile(source, compresslevel, blocksize, workers)
+            pigz_file.process_compression_target()
+        else:
+            pigz_python.compress_file(source, compresslevel, blocksize, workers)
+
+    run_with_timeout(do_compress, timeout, f"compressing {source.name}")
     return Path(source.parent, source.name + ".gz")
 
 
