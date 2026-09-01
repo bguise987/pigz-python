@@ -11,7 +11,7 @@ import random
 import struct
 from pathlib import Path
 
-import pigz_python.pigz_python as pigz_python
+from pigz_python import pigz_python
 
 KB = 1024
 MB = 1024 * KB
