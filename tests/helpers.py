@@ -10,6 +10,7 @@ import gzip
 import random
 import struct
 import threading
+import zlib
 from pathlib import Path
 
 from pigz_python import pigz_python
@@ -182,7 +183,16 @@ def assert_round_trip(directory, filename, data, **compress_kwargs):
 
     assert archive.exists(), f"no archive was produced at {archive}"
 
-    assert_identical(decompress(archive), data, f"round trip of {filename}")
+    try:
+        decompressed = decompress(archive)
+    except (EOFError, OSError, zlib.error) as exc:
+        # An unterminated deflate stream fails here rather than comparing
+        # unequal, so name the failure instead of surfacing a bare EOFError.
+        raise AssertionError(
+            f"{filename}: archive is not readable as gzip ({exc!r})"
+        ) from exc
+
+    assert_identical(decompressed, data, f"round trip of {filename}")
     assert_identical(
         source.read_bytes(), data, f"source file {filename} after compress"
     )
